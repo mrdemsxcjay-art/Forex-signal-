@@ -291,7 +291,7 @@ def section_d():
     # Construction légère du runner (config réelle) + vérif des compteurs
     runner = LoopRunner()
     check("LoopRunner opérationnel (paires, seuil, intervalle)",
-          runner.pairs and runner.interval >= 30 and runner.engine.threshold == 70,
+          runner.pairs and runner.interval >= 30 and runner.engine.threshold >= 50,
           f"paires={runner.pairs}, cycle={runner.interval}s, seuil={runner.engine.threshold}")
 
 

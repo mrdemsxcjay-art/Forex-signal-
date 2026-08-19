@@ -13,6 +13,9 @@ def utc_now_iso() -> str:
 PIP_SPECS: dict[str, tuple[float, float]] = {
     "EURUSD": (0.0001, 10.0),
     "GBPUSD": (0.0001, 10.0),
+    "AUDUSD": (0.0001, 10.0),
+    "USDCAD": (0.0001, 7.3),  # 10 CAD convertis (indicatif)
+    "USDJPY": (0.01, 6.6),    # 1000 JPY convertis (indicatif)
     "XAUUSD": (0.10, 10.0),   # 1 lot = 100 oz -> 0.1 $/pip de 0.1
 }
 DEFAULT_PIP_SPEC = (0.0001, 10.0)

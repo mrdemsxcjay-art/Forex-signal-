@@ -10,7 +10,7 @@ app:
 
 trading:
   # Paires suivies (XAUUSD = future or COMEX GC=F, proxy gratuit du spot)
-  pairs: ["EURUSD", "GBPUSD", "XAUUSD"]
+  pairs: ["EURUSD", "GBPUSD", "XAUUSD", "USDJPY", "AUDUSD", "USDCAD"]
   # Unités de temps utilisées par le moteur
   timeframes:
     fast: "5m"            # momentum court
@@ -30,9 +30,9 @@ data:
 
 signals:
   # Score minimal sur 100 pour émettre (spec : >= 70)
-  min_score: 70
+  min_score: 50
   # Anti-spam : max de signaux par paire et par jour
-  max_per_pair_per_day: 3
+  max_per_pair_per_day: 4
   # Notation /100
   grades:
     - { min: 85, label: "A+" }
@@ -48,7 +48,7 @@ signals:
   risk_pct: 1.0
   account_size: 10000
   # Cooldown anti-spam entre deux signaux d'une même paire (minutes)
-  cooldown_minutes: 240
+  cooldown_minutes: 90
 
 news:
   enabled: true

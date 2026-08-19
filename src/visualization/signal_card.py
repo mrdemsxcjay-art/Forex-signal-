@@ -29,7 +29,7 @@ FONT = "'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
 
 def _decimals(pair: str) -> int:
     pip_size, _ = pip_spec(pair)
-    return 5 if pip_size <= 0.001 else 2
+    return 5 if pip_size <= 0.001 else 3 if pip_size <= 0.05 else 2
 
 
 # --------------------------------------------------------------------------- #

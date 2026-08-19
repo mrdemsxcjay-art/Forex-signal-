@@ -28,7 +28,7 @@ API_URL = "https://api.telegram.org/bot{token}/sendMessage"
 
 def _fmt_price(pair: str, value: float) -> str:
     pip_size, _ = pip_spec(pair)
-    decimals = 5 if pip_size <= 0.001 else 2
+    decimals = 5 if pip_size <= 0.001 else 3 if pip_size <= 0.05 else 2
     return f"{value:.{decimals}f}"
 
 
