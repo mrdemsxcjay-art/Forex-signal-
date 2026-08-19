@@ -1,0 +1,26 @@
+# MOTEUR B (relais) — complément du ping-pong avec « Cycle moteur (cron gratuit) ».
+# Ne fait RIEN d'autre qu'un cycle complet ; il démarre quand A se termine,
+# et sa fin relance A. Sans cron propre (pour éviter les déclenchements doublés).
+name: Cycle moteur relais
+
+on:
+  workflow_run:
+    workflows: ["Cycle moteur (cron gratuit)"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cycle-engine-b
+  cancel-in-progress: false
+
+jobs:
+  cycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: ./.github/actions/cycle
+        with:
+          telegram-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}

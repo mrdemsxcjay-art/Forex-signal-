@@ -1,0 +1,60 @@
+# Étapes communes du cycle moteur (réutilisées par les 2 workflows ping-pong).
+name: "Cycle du moteur"
+description: "Checkout + Python + dépendances + base SQLite + un cycle complet"
+
+inputs:
+  telegram-token:
+    description: Token du bot Telegram
+    required: true
+  telegram-chat-id:
+    description: Chat id Telegram
+    required: true
+  confirm-once:
+    description: "1 = envoyer la confirmation Telegram (lancement manuel)"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Récupérer le code
+      uses: actions/checkout@v4
+
+    - name: Python 3.12 + cache des wheels
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: pip
+
+    - name: Installer les dépendances
+      shell: bash
+      run: pip install -r requirements.txt
+
+    - name: Restaurer la base de signaux (SQLite persistante via cache)
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          data/signals.db
+          data/last_cycle.json
+        key: signals-db-${{ github.run_id }}
+        restore-keys: |
+          signals-db-
+
+    - name: Cycle du moteur (analyse + Telegram + clôtures TP/SL)
+      shell: bash
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ inputs.telegram-token }}
+        TELEGRAM_CHAT_ID: ${{ inputs.telegram-chat-id }}
+        TELEGRAM_ENABLED: "true"
+        CONFIRM_ONCE: ${{ inputs.confirm-once }}
+      run: |
+        mkdir -p data logs
+        python -m src.main --once
+
+    - name: Archiver la base et le rapport de cycle
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          data/signals.db
+          data/last_cycle.json
+        key: signals-db-${{ github.run_id }}

@@ -1,37 +1,22 @@
-# Option ZÉRO-SERVEUR 100 % gratuite : le moteur tourne dans GitHub Actions.
-#
-# Principe : toutes les 5 minutes, un workflow exécute UN cycle complet du
-# moteur (python -m src.main --once : données -> agents -> scoring ->
-# Telegram -> clôture TP/SL). La base SQLite (data/signals.db) est passée
-# de run en run via le cache GitHub Actions (privé, même dépôt public).
-#
-# Prérequis (secrets du dépôt GitHub) :
-#   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID   (TELEGRAM_ENABLED forcé à true)
-#
-# Limites assumées (honnêteté) :
-#   - dépôt PUBLIC requis (minutes illimitées) : le privé est plafonné
-#     à 2000 min/mois, or ce job consomme ~4000-9000 min/mois ;
-#   - le cron GitHub peut glisser de 5-15 min aux heures de pointe
-#     (acceptable pour des signaux M15, déclencheur valide 90 min) ;
-#   - cadence 10 min au lieu de 60 s.
+# MOTEUR A — ping-pong avec « Cycle moteur relais » (B) :
+# A se termine -> B démarre -> B se termine -> A démarre...
+# (GitHub interdit qu'un workflow s'écoute lui-même : d'où le relais.)
+# Le cron */5 reste en filet de sécurité si la chaîne s'interrompt.
 name: Cycle moteur (cron gratuit)
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # filet de sécurité (GitHub peut retarder les crons)
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
-  # AUTO-ENCHAÎNEMENT : chaque cycle terminé relance immédiatement le suivant
-  # (contourne la limitation de fréquence des crons GitHub ; le cron */5
-  # reste en secours si la chaîne s'interrompt).
   workflow_run:
-    workflows: ["Cycle moteur (cron gratuit)"]
+    workflows: ["Cycle moteur relais"]
     types: [completed]
 
 permissions:
   contents: read
 
 concurrency:
-  group: cycle-engine
+  group: cycle-engine-a
   cancel-in-progress: false
 
 jobs:
@@ -39,42 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 9
     steps:
-      - name: Récupérer le code
-        uses: actions/checkout@v4
-
-      - name: Python 3.12 + cache des wheels
-        uses: actions/setup-python@v5
+      - uses: ./.github/actions/cycle
         with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Installer les dépendances
-        run: pip install -r requirements.txt
-
-      - name: Restaurer la base de signaux (SQLite persistante via cache)
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            data/signals.db
-            data/last_cycle.json
-          key: signals-db-${{ github.run_id }}
-          restore-keys: |
-            signals-db-
-
-      - name: Cycle du moteur (analyse + Telegram + clôtures TP/SL)
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TELEGRAM_ENABLED: "true"
-          CONFIRM_ONCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
-        run: |
-          mkdir -p data logs
-          python -m src.main --once
-
-      - name: Archiver la base mise à jour
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            data/signals.db
-            data/last_cycle.json
-          key: signals-db-${{ github.run_id }}
+          telegram-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          confirm-once: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
