@@ -1,0 +1,32 @@
+[Unit]
+Description=Forex SMC - dashboard Streamlit (lecture seule, tunnel SSH recommande)
+After=network-online.target forex-engine.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=forex
+Group=forex
+WorkingDirectory=/opt/forex-signals
+ExecStart=/opt/forex-signals/.venv/bin/python -m streamlit run dashboard/app.py \
+    --server.port 8501 \
+    --server.address 127.0.0.1 \
+    --server.headless true \
+    --browser.gatherUsageStats false
+Restart=always
+RestartSec=15
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forex-dashboard
+
+# Dashboard non expose sur Internet : ecoute localhost uniquement,
+# acces via : ssh -L 8501:localhost:8501 utilisateur@serveur
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/forex-signals/data /opt/forex-signals/logs
+
+[Install]
+WantedBy=multi-user.target

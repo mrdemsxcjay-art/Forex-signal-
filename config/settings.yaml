@@ -1,0 +1,72 @@
+# ============================================================
+# Configuration de l'application (NON sensible — versionnable)
+# Les secrets (token Telegram) restent dans .env
+# Toutes les heures sont en UTC en interne.
+# ============================================================
+
+app:
+  name: "Forex Signals — Price Action & SMC"
+  timezone: "UTC"
+
+trading:
+  # Paires suivies (XAUUSD = future or COMEX GC=F, proxy gratuit du spot)
+  pairs: ["EURUSD", "GBPUSD", "XAUUSD"]
+  # Unités de temps utilisées par le moteur
+  timeframes:
+    fast: "5m"            # momentum court
+    entry: "15m"          # timeframe d'entrée des signaux
+    structure: "1h"       # structure de marché / tendance
+  # Rafraîchissement de la boucle principale (secondes)
+  poll_interval_seconds: 60
+  # Historique chargé à chaque démarrage (en jours)
+  lookback_days: 30
+
+data:
+  provider: "yahoo"               # source (voir src/data/)
+  min_request_interval_seconds: 0.5   # throttle anti rate-limit
+  max_retries: 4                      # reconnexion auto : nb de tentatives
+  retry_base_delay_seconds: 1.0       # backoff exponentiel de base
+  max_candles: 3000                   # mémoire bornée par (paire, timeframe)
+
+signals:
+  # Score minimal sur 100 pour émettre (spec : >= 70)
+  min_score: 70
+  # Anti-spam : max de signaux par paire et par jour
+  max_per_pair_per_day: 3
+  # Notation /100
+  grades:
+    - { min: 85, label: "A+" }
+    - { min: 75, label: "A" }
+    - { min: 70, label: "B" }
+  # Déclencheur M15 : âge max en bougies (6 x 15 min = 90 min)
+  trigger_max_age_candles: 6
+  # Zone actionnable (OB/FVG) : distance max au prix, en multiples d'ATR M15
+  zone_proximity_atr: 1.5
+  # Agent risque
+  min_rr: 1.5
+  default_rr: 2.0
+  risk_pct: 1.0
+  account_size: 10000
+  # Cooldown anti-spam entre deux signaux d'une même paire (minutes)
+  cooldown_minutes: 240
+
+news:
+  enabled: true
+  # Filtrage du calendrier économique ForexFactory (JSON public gratuit)
+  high_impact_only: true
+  # Fenêtre d'interdiction de signal autour d'une news à fort impact
+  block_minutes_before: 30
+  block_minutes_after: 30
+
+telegram:
+  # Peut aussi être piloté par TELEGRAM_ENABLED dans .env
+  enabled: true
+
+logging:
+  level: "INFO"          # DEBUG / INFO / WARNING / ERROR
+  file: "logs/app.log"
+  max_bytes: 5000000     # 5 Mo par fichier
+  backup_count: 5        # => 25 Mo max au total
+
+dashboard:
+  port: 8501

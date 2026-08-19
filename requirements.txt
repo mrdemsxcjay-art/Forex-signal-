@@ -1,0 +1,28 @@
+# ============================================================
+# Dépendances exactes — testées ensemble sur Python 3.10 à 3.13
+# (versions figées = environnement 100% reproductible)
+# Installation : pip install -r requirements.txt
+# ============================================================
+
+# --- Analyse de données (le cœur du moteur) ---
+pandas==2.2.3              # DataFrames de bougies + backtest vectorisé
+numpy==2.3.5               # calculs numériques (dépendance de pandas)
+
+# --- Données de marché (gratuit, sans clé API) ---
+yfinance==1.6.0            # bougies Forex quasi temps réel via Yahoo Finance
+
+# --- Réseau / API ---
+requests==2.33.0           # Bot API Telegram + calendrier ForexFactory
+beautifulsoup4==4.15.0     # scraping HTML ForexFactory (chemin de secours)
+
+# --- Configuration ---
+PyYAML==6.0.3              # lecture de config/settings.yaml
+python-dotenv==1.2.3       # lecture du .env (secrets)
+
+# --- Dashboard ---
+streamlit==1.61.1          # dashboard web professionnel, gratuit et open source
+plotly==6.0.1              # graphiques bougies interactifs
+streamlit-autorefresh==1.0.1  # rafraîchissement automatique du dashboard
+
+# Remarque : logging, sqlite3, dataclasses, asyncio -> bibliothèque standard,
+# aucune dépendance nécessaire.

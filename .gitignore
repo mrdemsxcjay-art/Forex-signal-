@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets — JAMAIS de commit du .env
+.env
+
+# Données générées
+logs/*
+!logs/.gitkeep
+data/*
+!data/.gitkeep
+*.db
+
+# OS / éditeurs
+.DS_Store
+.idea/
+.vscode/

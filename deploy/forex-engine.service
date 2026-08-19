@@ -1,0 +1,32 @@
+[Unit]
+Description=Forex SMC - moteur de signaux (analyse uniquement, aucun ordre)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=forex
+Group=forex
+WorkingDirectory=/opt/forex-signals
+ExecStart=/opt/forex-signals/.venv/bin/python -m src.main
+Restart=always
+RestartSec=30
+StartLimitIntervalSec=600
+StartLimitBurst=10
+
+# Journalisation dans journald (journalctl -u forex-engine -f)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=forex-engine
+
+# Durcissement : le moteur n'a besoin que de data/ et logs/
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/forex-signals/data /opt/forex-signals/logs
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

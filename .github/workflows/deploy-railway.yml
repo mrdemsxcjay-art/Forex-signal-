@@ -1,0 +1,46 @@
+# Déploiement Railway par push GitHub (token) — moteur de signaux.
+#
+# Prérequis (une seule fois) :
+#   1. Secrets du dépôt GitHub (Settings > Secrets and variables > Actions) :
+#      - RAILWAY_TOKEN          : Railway > Account Settings > API Tokens
+#      - RAILWAY_SERVICE_ENGINE : nom ou UUID du service moteur Railway
+#   2. Volume attaché au service (dashboard Railway ou CLI) : /app/data
+#   3. Variables du service Railway : TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
+#      TELEGRAM_ENABLED=true  (le .env n'est PAS versionné).
+#
+# Déclencheurs : chaque push sur main, ou manuel (onglet Actions > Run).
+name: Deploy Railway
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy-engine:
+    name: Moteur de signaux (worker 24/7)
+    runs-on: ubuntu-latest
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Construire et déployer le service moteur
+        run: railway up --service "${{ secrets.RAILWAY_SERVICE_ENGINE }}" --ci --detach
+
+  # Optionnel : dashboard public (second service Railway, type web).
+  # Start command du service : streamlit run dashboard/app.py
+  #   --server.port $PORT --server.address 0.0.0.0 --server.headless true
+  # Protégez-le avec la variable DASHBOARD_TOKEN (voir dashboard/app.py :
+  # accès via https://<domaine>.up.railway.app/?token=...).
+  # deploy-dashboard:
+  #   name: Dashboard Streamlit
+  #   runs-on: ubuntu-latest
+  #   container: ghcr.io/railwayapp/cli:latest
+  #   env:
+  #     RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: railway up --service "${{ secrets.RAILWAY_SERVICE_DASHBOARD }}" --ci --detach
