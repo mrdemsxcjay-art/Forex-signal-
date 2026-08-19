@@ -10,6 +10,7 @@ avec redémarrage automatique et supervision par heartbeat Telegram.
 | Option | Coût | 24/7 réel ? | Verdict |
 |---|---|---|---|
 | **Oracle Cloud Always Free** (VM Ampere A1, 4 cœurs / 24 Go RAM) | 0 € à vie | Oui | **Recommandé** : seule offre gratuite pérenne sans mise en veille. Région Johannesburg proche de l'Afrique de l'Ouest. |
+| **Google Cloud e2-micro** (Always Free, régions US) | 0 € à vie | Oui | **Excellente alternative à Oracle** : 1 VM e2-micro + 30 Go de disque pour toujours — voir § 5c. |
 | PC personnel (ou Raspberry Pi) chez soi | 0 € | Oui si toujours allumé | Très bon pour démarrer : ce projet tourne sur ~200 Mo de RAM. |
 | Railway (essai 30 j / 5 $ de crédit) | 0 € l'essai, puis ~1-5 €/mois | Oui (pas de veille, volume persistant) | Très bon pour démarrer en 10 min ; **payant après l'essai** — voir § 5b. |
 | Render free tier | 0 € | **Non** : mise en veille après 15 min d'inactivité | Déconseillé pour la boucle ; utilisable seulement via cron externe (hack). |
@@ -181,7 +182,49 @@ elle reflète l'instant de l'export) ; les données restent publiques sur
 l'URL netlify.app (ne pas y mettre d'information sensible) ; le vrai
 dashboard interactif reste accessible par tunnel SSH (section 2.5).
 
-## 6. Alternative : votre propre machine
+## 5c. Alternative gratuite n°2 : Google Cloud e2-micro (Always Free)
+
+**Lien officiel** : https://cloud.google.com/free — offre permanente (à distinguer
+de l'essai 300 $/90 j). Contenu utile pour ce projet :
+- 1 VM **e2-micro** (2 vCPU partagés, 1 Go RAM) par mois, À VIE ;
+- 30 Go de disque standard + 1 Go d'egress réseau/mois (largement suffisant :
+  notre moteur consomme ~300 Mo de RAM et quelques Mo/jour de données).
+
+**RÈGLE D'OR** : gratuit UNIQUEMENT dans `us-west1` (Oregon), `us-central1`
+(Iowa) ou `us-east1` (Caroline du Sud). Une e2-micro ailleurs (Europe, Asie…)
+est facturée ~7 $/mois dès sa création. Latence Abidjan->USA ~220 ms :
+sans incidence (cycles de 60 s, appels API ponctuels).
+
+Procédure (identique à Oracle à partir de l'étape 2.2) :
+1. Compte sur https://cloud.google.com/free (carte demandée, non débitée
+   dans les limites Always Free ; configurez une alerte budget à 1 €) ;
+2. Console > Compute Engine > Créer une instance :
+   - Région `us-central1`, zone au choix ; Machine : **e2-micro** ;
+   - Disque de démarrage : Ubuntu 22.04, **30 Go HDD standard** (pas SSD) ;
+   - SSH : ajouter votre clé publique ; Pare-feu : SSH (22) uniquement ;
+3. Se connecter en SSH puis suivre **les étapes 2.2 à 2.5 du guide Oracle**
+   (mêmes commandes : `deploy/install.sh` et les services systemd fonctionnent
+   tels quels).
+
+## 5d. Option zéro-serveur 100 % gratuite : GitHub Actions en cron
+
+Le workflow `.github/workflows/cycle-engine.yml` exécute **un cycle complet
+du moteur toutes les 10 minutes** directement dans GitHub Actions :
+données -> agents -> signal -> Telegram -> clôtures TP/SL.
+La base SQLite est transmise de run en run via le cache GitHub (privé).
+
+Mise en route :
+1. Dépôt GitHub **public** obligatoire (minutes illimitées ; un dépôt privé
+   serait plafonné à 2000 min/mois alors que ce job en consomme ~4000+) ;
+2. Secrets du dépôt : `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` ;
+3. Onglet Actions > activer le workflow. C'est tout.
+
+Limites assumées : cadence 10 min (au lieu de 60 s) ; le cron GitHub peut
+glisser de 5-15 min aux heures de pointe — acceptable pour des signaux M15
+(déclencheur valide 90 min) ; le cache est purgé après 7 jours sans usage
+(sans conséquence : la boucle tourne toutes les 10 min).
+
+## 7. Alternative : votre propre machine
 
 ```bash
 cd forex-signals && source .venv/bin/activate
