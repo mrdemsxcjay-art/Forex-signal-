@@ -1,6 +1,6 @@
 # Option ZÉRO-SERVEUR 100 % gratuite : le moteur tourne dans GitHub Actions.
 #
-# Principe : toutes les 10 minutes, un workflow exécute UN cycle complet du
+# Principe : toutes les 5 minutes, un workflow exécute UN cycle complet du
 # moteur (python -m src.main --once : données -> agents -> scoring ->
 # Telegram -> clôture TP/SL). La base SQLite (data/signals.db) est passée
 # de run en run via le cache GitHub Actions (privé, même dépôt public).
@@ -18,7 +18,7 @@ name: Cycle moteur (cron gratuit)
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
 permissions:

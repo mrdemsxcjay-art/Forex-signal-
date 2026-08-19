@@ -219,7 +219,7 @@ Mise en route :
 2. Secrets du dépôt : `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` ;
 3. Onglet Actions > activer le workflow. C'est tout.
 
-Limites assumées : cadence 10 min (au lieu de 60 s) ; le cron GitHub peut
+Limites assumées : cadence 5 min (au lieu de 60 s) ; le cron GitHub peut
 glisser de 5-15 min aux heures de pointe — acceptable pour des signaux M15
 (déclencheur valide 90 min) ; le cache est purgé après 7 jours sans usage
 (sans conséquence : la boucle tourne toutes les 10 min).
