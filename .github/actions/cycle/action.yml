@@ -17,9 +17,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Récupérer le code
-      uses: actions/checkout@v4
-
     - name: Python 3.12 + cache des wheels
       uses: actions/setup-python@v5
       with:

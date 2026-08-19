@@ -24,6 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 9
     steps:
+      - name: Récupérer le code (requis avant l'action locale)
+        uses: actions/checkout@v4
       - uses: ./.github/actions/cycle
         with:
           telegram-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
