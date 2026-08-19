@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import signal as sys_signal
 import sys
 import threading
@@ -228,6 +229,16 @@ def main(argv=None) -> int:
     if args.once:
         summary = runner.run_cycle()
         logger.info("Mode --once : cycle %d terminé.", summary["cycle"])
+        # Confirmation visible (premier lancement manuel / workflow_dispatch) :
+        # CONFIRM_ONCE=1 -> un message Telegram résume le cycle, preuve de vie.
+        if os.getenv("CONFIRM_ONCE") == "1":
+            runner._notify(
+                "MOTEUR OPERATIONNEL\n"
+                f"Cycle {summary['cycle']} exécute : "
+                f"{', '.join(runner.pairs)}\n"
+                "Prochains cycles : automatiques toutes les 5 min.\n"
+                "Trading = risque. DYOR."
+            )
         return 0
     runner.run_forever()
     return 0

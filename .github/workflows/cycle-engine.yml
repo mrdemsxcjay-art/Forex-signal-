@@ -58,6 +58,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_ENABLED: "true"
+          CONFIRM_ONCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
         run: |
           mkdir -p data logs
           python -m src.main --once
