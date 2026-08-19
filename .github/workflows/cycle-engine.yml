@@ -18,8 +18,14 @@ name: Cycle moteur (cron gratuit)
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/5 * * * *"   # filet de sécurité (GitHub peut retarder les crons)
   workflow_dispatch: {}
+  # AUTO-ENCHAÎNEMENT : chaque cycle terminé relance immédiatement le suivant
+  # (contourne la limitation de fréquence des crons GitHub ; le cron */5
+  # reste en secours si la chaîne s'interrompt).
+  workflow_run:
+    workflows: ["Cycle moteur (cron gratuit)"]
+    types: [completed]
 
 permissions:
   contents: read
