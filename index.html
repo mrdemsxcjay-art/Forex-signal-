@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signaux Forex — Statut</title>
+<style>
+:root { color-scheme: dark; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0E1726; color: #EAF0F8;
+       font-family: 'Segoe UI', Arial, sans-serif; padding: 28px; }
+.wrap { max-width: 1080px; margin: 0 auto; }
+h1 { font-size: 22px; margin: 18px 0 6px; }
+h2 { font-size: 16px; margin: 26px 0 12px; color: #F5C542;
+     letter-spacing: 1px; text-transform: uppercase; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px; }
+.card { background: #16233A; border-radius: 10px; padding: 14px 16px;
+        border-left: 3px solid #F5C542; }
+.card .k { color: #8FA3BF; font-size: 12px; text-transform: uppercase; }
+.card .v { font-size: 24px; font-weight: 700; margin-top: 4px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; color: #8FA3BF; font-weight: 600; padding: 8px 10px;
+     border-bottom: 1px solid #223350; }
+td { padding: 8px 10px; border-bottom: 1px solid #1A2A45; }
+tr:hover td { background: #142038; }
+.demo { background: #3A2E16; color: #F5C542; padding: 10px 14px; border-radius: 8px;
+        border-left: 3px solid #F5C542; font-weight: 600; margin: 12px 0; }
+.pill { padding: 2px 10px; border-radius: 12px; font-weight: 700; font-size: 12px; }
+.paircard { background: #16233A; border-radius: 10px; padding: 14px;
+            border-left: 3px solid #8FA3BF; }
+.scorebar { background: #223350; border-radius: 6px; height: 8px; margin-top: 8px; }
+.scorebar > div { height: 8px; border-radius: 6px; background: #1F5FA8; }
+.blockers { color: #8FA3BF; font-size: 12px; margin-top: 6px; }
+.footer { color: #8FA3BF; font-size: 12px; margin-top: 34px; border-top: 1px solid #223350;
+          padding-top: 14px; line-height: 1.6; }
+.svgcard { margin: 14px 0; border-radius: 12px; overflow: hidden;
+           background: #0E1726; border: 1px solid #223350; }
+.pos { background: #16233A; border-radius: 10px; padding: 14px; margin: 10px 0; }
+</style></head>
+<body><div class="wrap">
+
+<svg width="230" height="54" viewBox="0 0 230 54" xmlns="http://www.w3.org/2000/svg">
+  <rect x="2" y="6" width="46" height="42" rx="9" fill="#16233A"/>
+  <line x1="14" y1="12" x2="14" y2="42" stroke="#2ECC71" stroke-width="3"/>
+  <rect x="10" y="20" width="8" height="14" rx="2" fill="#2ECC71"/>
+  <line x1="25" y1="8" x2="25" y2="46" stroke="#E74C3C" stroke-width="3"/>
+  <rect x="21" y="14" width="8" height="16" rx="2" fill="#E74C3C"/>
+  <line x1="36" y1="16" x2="36" y2="38" stroke="#F5C542" stroke-width="3"/>
+  <rect x="32" y="22" width="8" height="10" rx="2" fill="#F5C542"/>
+  <text x="58" y="26" fill="#EAF0F8" font-size="17" font-weight="700">SIGNAUX FOREX</text>
+  <text x="58" y="44" fill="#8FA3BF" font-size="12">SMC multi-agents · statut public</text>
+</svg>
+
+<div class="demo">DONNÉES DE DÉMONSTRATION — la base de production est vide sur cet instantané.</div>
+<h2>Compte de signaux</h2><div class="grid"><div class="card"><div class="k">Signaux</div><div class="v">8</div></div><div class="card"><div class="k">En cours</div><div class="v">1</div></div><div class="card"><div class="k">Winrate</div><div class="v">57 %</div></div><div class="card"><div class="k">R cumulé</div><div class="v">+6.5</div></div><div class="card"><div class="k">TP / SL</div><div class="v">4 / 2</div></div></div>
+<h2>Positions ouvertes</h2><div class="pos"><b>XAU/USD SHORT</b> · score 76 (A) · London Kill Zone<br><span style="color:#8FA3BF">entrée 2394.8 · TP 2378.6 · SL 2402.9 · depuis 2026-08-19 07:55</span></div>
+<h2>Historique</h2><table><tr><th>Date</th><th>Paire</th><th>Sens</th><th>Score</th><th>Entrée</th><th>TP</th><th>SL</th><th>R/R</th><th>Issue</th><th>R</th></tr><tr><td>2026-08-11 08:32</td><td>EURUSD</td><td>LONG</td><td>90</td><td>1.0912</td><td>1.095</td><td>1.0893</td><td>1:2.0</td><td><span class="pill" style="background:#2ECC7122;color:#2ECC71">Objectif</span></td><td>+2.0</td></tr><tr><td>2026-08-11 14:15</td><td>XAUUSD</td><td>SHORT</td><td>75</td><td>2380.5</td><td>2372.1</td><td>2384.7</td><td>1:2.0</td><td><span class="pill" style="background:#E74C3C22;color:#E74C3C">Stop</span></td><td>-1.0</td></tr><tr><td>2026-08-12 09:47</td><td>GBPUSD</td><td>LONG</td><td>85</td><td>1.2685</td><td>1.2765</td><td>1.2645</td><td>1:2.0</td><td><span class="pill" style="background:#2ECC7122;color:#2ECC71">Objectif</span></td><td>+2.0</td></tr><tr><td>2026-08-13 10:20</td><td>EURUSD</td><td>SHORT</td><td>70</td><td>1.1042</td><td>1.1002</td><td>1.1062</td><td>1:2.0</td><td><span class="pill" style="background:#8FA3BF22;color:#8FA3BF">Expiration</span></td><td>+0.5</td></tr><tr><td>2026-08-14 13:05</td><td>XAUUSD</td><td>LONG</td><td>80</td><td>2412.3</td><td>2430.5</td><td>2403.2</td><td>1:2.0</td><td><span class="pill" style="background:#2ECC7122;color:#2ECC71">Objectif</span></td><td>+2.0</td></tr><tr><td>2026-08-15 08:41</td><td>EURUSD</td><td>LONG</td><td>72</td><td>1.1018</td><td>1.1058</td><td>1.0998</td><td>1:2.0</td><td><span class="pill" style="background:#E74C3C22;color:#E74C3C">Stop</span></td><td>-1.0</td></tr><tr><td>2026-08-18 09:12</td><td>GBPUSD</td><td>SHORT</td><td>88</td><td>1.2762</td><td>1.2682</td><td>1.2802</td><td>1:2.0</td><td><span class="pill" style="background:#2ECC7122;color:#2ECC71">Objectif</span></td><td>+2.0</td></tr><tr><td>2026-08-19 07:55</td><td>XAUUSD</td><td>SHORT</td><td>76</td><td>2394.8</td><td>2378.6</td><td>2402.9</td><td>1:2.0</td><td><span class="pill" style="background:#F5C54222;color:#F5C542">En cours</span></td><td>+nan</td></tr></table>
+<h2>Courbe d'équité</h2><div class="card"><svg viewBox="0 0 760 240" xmlns="http://www.w3.org/2000/svg" width="100%">
+      <path d="M 42.0,198.0 L 42.0,198.0 L 138.6,150.0 L 235.1,174.0 L 331.7,126.0 L 428.3,114.0 L 524.9,66.0 L 621.4,90.0 L 718.0,42.0 L 718.0,198.0 Z" fill="#2ECC7118"/>
+      <polyline points="42.0,198.0 138.6,150.0 235.1,174.0 331.7,126.0 428.3,114.0 524.9,66.0 621.4,90.0 718.0,42.0" fill="none" stroke="#2ECC71" stroke-width="2.5"
+                stroke-linejoin="round"/>
+      <line x1="42" y1="198.0" x2="718" y2="198.0" stroke="#8FA3BF" stroke-dasharray="4 4" stroke-width="1"/>
+      <text x="42" y="28" fill="#8FA3BF" font-size="12">+6.5R</text>
+      <text x="42" y="220" fill="#8FA3BF" font-size="12">+0.0R</text>
+      <text x="718" y="220" fill="#2ECC71" font-size="13"
+            text-anchor="end" font-weight="700">Solde : +6.5R</text>
+      <text x="380" y="232" fill="#8FA3BF" font-size="11"
+            text-anchor="middle">clôtures, ordre chronologique</text>
+    </svg></div>
+<h2>Dernier cycle moteur (transparence)</h2><div class="card">Moteur sans rapport récent — lancez python -m src.main sur l'hôte.</div>
+<h2>Dernières cartes de signal</h2><div class="card">Aucune carte générée (apparaissent à chaque signal).</div>
+<div class="footer">
+  Instantané statique généré le 2026-08-19 02:41:35 UTC — le moteur (analyse 24/7) tourne sur son hôte ;
+  cette page est publiée sur Netlify et ne constitue pas un conseil financier. DYOR.<br>
+  Source : Yahoo Finance / ForexFactory · Moteur SMC multi-agents ·
+  rafraîchissement : relancer scripts/export_static.py puis redéposer le zip.
+</div>
+</div></body></html>
