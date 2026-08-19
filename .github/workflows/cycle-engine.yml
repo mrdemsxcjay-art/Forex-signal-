@@ -48,7 +48,9 @@ jobs:
       - name: Restaurer la base de signaux (SQLite persistante via cache)
         uses: actions/cache/restore@v4
         with:
-          path: data/signals.db
+          path: |
+            data/signals.db
+            data/last_cycle.json
           key: signals-db-${{ github.run_id }}
           restore-keys: |
             signals-db-
@@ -66,5 +68,7 @@ jobs:
       - name: Archiver la base mise à jour
         uses: actions/cache/save@v4
         with:
-          path: data/signals.db
+          path: |
+            data/signals.db
+            data/last_cycle.json
           key: signals-db-${{ github.run_id }}

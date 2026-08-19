@@ -1,0 +1,54 @@
+# Page web publique de statut — publiée sur GitHub Pages, rafraîchie 2x/heure.
+#
+# URL finale : https://mrdemsxcjay-art.github.io/Forex-signal-/
+# Le site reprend KPIs, historique, courbe d'équité, état du dernier cycle
+# et cartes de signal (généré par scripts/export_static.py depuis les
+# données réelles du moteur transmises par le cache).
+name: Page de statut (GitHub Pages)
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-site
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installer les dépendances
+        run: pip install -r requirements.txt
+
+      - name: Restaurer les données du moteur (cache partagé)
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            data/signals.db
+            data/last_cycle.json
+          key: signals-db-${{ github.run_id }}
+          restore-keys: |
+            signals-db-
+
+      - name: Générer le site statique
+        run: python scripts/export_static.py
+
+      - name: Publier sur la branche gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: data/site
+          commit_message: "Mise a jour de la page de statut"
