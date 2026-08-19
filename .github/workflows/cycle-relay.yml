@@ -4,6 +4,11 @@
 name: Cycle moteur relais
 
 on:
+  # Cron décalé d'une minute vs A : échantillonnage en quinconce
+  # (GitHub throttle les crons populaires ; deux workflows décalés
+  # doublent les chances de tirage effectives).
+  schedule:
+    - cron: "1-59/5 * * * *"
   workflow_run:
     workflows: ["Cycle moteur (cron gratuit)"]
     types: [completed]

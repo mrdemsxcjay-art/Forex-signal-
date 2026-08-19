@@ -39,7 +39,7 @@ signals:
     - { min: 75, label: "A" }
     - { min: 70, label: "B" }
   # Déclencheur M15 : âge max en bougies (6 x 15 min = 90 min)
-  trigger_max_age_candles: 6
+  trigger_max_age_candles: 12
   # Zone actionnable (OB/FVG) : distance max au prix, en multiples d'ATR M15
   zone_proximity_atr: 1.5
   # Agent risque
