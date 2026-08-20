@@ -72,6 +72,7 @@ class SignalsConfig:
     risk_pct: float | None = None
     account_size: float | None = None
     cooldown_minutes: int | None = None
+    expiry_bars: int | None = None
 
 
 @dataclass(frozen=True)
@@ -188,6 +189,7 @@ def load_config(settings_file: Path = SETTINGS_FILE) -> Config:
             risk_pct=_opt_float(signals, "risk_pct"),
             account_size=_opt_float(signals, "account_size"),
             cooldown_minutes=_opt_int(signals, "cooldown_minutes"),
+            expiry_bars=_opt_int(signals, "expiry_bars"),
         ),
         news=NewsConfig(
             enabled=bool(news["enabled"]),

@@ -42,11 +42,12 @@ signals:
   trigger_max_age_candles: 12
   # Zone actionnable (OB/FVG) : distance max au prix, en multiples d'ATR M15
   zone_proximity_atr: 1.5
+  expiry_bars: 96              # suivi du signal jusqu'à 24 h (TP éloignés)
   # Agent risque
-  min_rr: 1.5
-  default_rr: 2.0
-  risk_pct: 1.0
-  account_size: 10000
+  min_rr: 2.5
+  default_rr: 3.0
+  risk_pct: 2.0
+  account_size: 50
   # Cooldown anti-spam entre deux signaux d'une même paire (minutes)
   cooldown_minutes: 90
 

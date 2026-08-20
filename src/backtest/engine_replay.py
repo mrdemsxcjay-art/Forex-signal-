@@ -86,7 +86,8 @@ def collect_instants(m15: pd.DataFrame, days: int, offsets=(1, 3)) -> list[pd.Ti
 def replay(frames_by_pair: dict[str, dict[Timeframe, pd.DataFrame]],
            days: int = 30, threshold: float = 70.0,
            fundamental: FundamentalAgent | None = None,
-           label: str = "replay") -> ReplayResult:
+           label: str = "replay", min_rr: float | None = None,
+           default_rr: float | None = None, expiry_bars: int | None = None) -> ReplayResult:
     """Rejoue le moteur complet sur l'historique, base temporaire isolée."""
     import tempfile
 
@@ -98,6 +99,10 @@ def replay(frames_by_pair: dict[str, dict[Timeframe, pd.DataFrame]],
         telegram=TelegramSender("", "", enabled=False),
     )
     engine.threshold = float(threshold)
+    if min_rr is not None:
+        engine.risk_agent.min_rr = float(min_rr)
+    if default_rr is not None:
+        engine.risk_agent.default_rr = float(default_rr)
 
     m15_frames = {p: frames[Timeframe.M15] for p, frames in frames_by_pair.items()}
     total_instants = 0
@@ -118,7 +123,8 @@ def replay(frames_by_pair: dict[str, dict[Timeframe, pd.DataFrame]],
                             label, pair, report.score, ts)
 
     # Clôture des signaux émis sur les bougies réelles
-    tracker = SignalTracker(db, _FrameStubFetcher(m15_frames), expiry_bars=48)
+    tracker = SignalTracker(db, _FrameStubFetcher(m15_frames),
+                            expiry_bars=expiry_bars or 48)
     tracker.update_all(now=datetime.now(timezone.utc))
 
     stats = db.stats()

@@ -66,7 +66,7 @@ class LoopRunner:
         self.telegram = self.engine.telegram
         self.tracker = tracker or SignalTracker(
             self.db, self.fetcher, telegram=self.telegram,
-            expiry_bars=48,
+            expiry_bars=getattr(self.cfg.signals, "expiry_bars", None) or 96,
         )
         self.pairs = list(self.cfg.trading.pairs)
         self.interval = int(self.cfg.trading.poll_interval_seconds)

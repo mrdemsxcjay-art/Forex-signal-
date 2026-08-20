@@ -33,9 +33,14 @@ def _fmt_price(pair: str, value: float) -> str:
 
 
 def format_signal_message(signal: Signal) -> str:
-    """Carte de signal texte, format professionnel sans emoji."""
+    """Carte de signal complète : plan + analyse technique + analyse
+    fondamentale écrites + confluences. Format professionnel sans emoji."""
     pair_disp = f"{signal.pair[:3]}/{signal.pair[3:]}"
     line = "━" * 24
+    fund = signal.fundamental or {}
+    tf = signal.timeframes or {}
+    drivers = fund.get("drivers") or []
+
     parts = [
         line,
         "SIGNAL DETECTE",
@@ -50,16 +55,33 @@ def format_signal_message(signal: Signal) -> str:
         f"SL          : {_fmt_price(signal.pair, signal.risk.sl)} "
         f"(-{signal.risk.risk_pips:.0f} pips)",
         f"R/R         : 1:{signal.risk.rr:.1f}",
-        f"Taille      : {signal.risk.lots} lots",
+        f"Taille      : {signal.risk.lots} lot(s)",
         line,
-        "Confluences detectees :",
+        "ANALYSE TECHNIQUE",
+        f"Tendance D1 : {tf.get('D1', '—')}",
+        f"Contexte H4 : {tf.get('H4', '—')}",
+        f"Declencheur : {tf.get('M15', '—')}",
+        f"Plan entree : {signal.risk.reasons[0] if signal.risk.reasons else 'au marche'}",
+        line,
+        "ANALYSE FONDAMENTALE",
+        f"Sentiment   : {fund.get('bias', 'NEUTRAL')} "
+        f"({'soutient ce signal' if fund.get('supports') else 'neutre pour ce signal'})",
+    ]
+    if drivers:
+        parts.extend(f"  - {d}" for d in drivers[:3])
+    else:
+        parts.append("  - aucune surprise macro marquee aujourd'hui")
+    parts.extend([
+        "Filtre news : aucune publication rouge imminente",
+        line,
+        "CONFLUENCES DETECTEES :",
         *(f"  ✓ {c}" for c in signal.confluences),
         line,
         f"Score de confiance : {signal.score}/100 (grade {signal.grade})",
         f"Date : {signal.created_at}",
         line,
         "Trading = risque. DYOR.",
-    ]
+    ])
     return "\n".join(parts)
 
 
