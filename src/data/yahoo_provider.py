@@ -50,6 +50,12 @@ YF_SYMBOLS: dict[str, str] = {
     "USDJPY": "USDJPY=X",
     "AUDUSD": "AUDUSD=X",
     "USDCAD": "USDCAD=X",
+    "NZDUSD": "NZDUSD=X",
+    "USDCHF": "USDCHF=X",
+    "EURJPY": "EURJPY=X",
+    "GBPJPY": "GBPJPY=X",
+    "AUDJPY": "AUDJPY=X",
+    "EURGBP": "EURGBP=X",
 }
 
 

@@ -16,6 +16,12 @@ PIP_SPECS: dict[str, tuple[float, float]] = {
     "AUDUSD": (0.0001, 10.0),
     "USDCAD": (0.0001, 7.3),  # 10 CAD convertis (indicatif)
     "USDJPY": (0.01, 6.6),    # 1000 JPY convertis (indicatif)
+    "NZDUSD": (0.0001, 10.0),
+    "USDCHF": (0.0001, 11.3),  # 10 CHF convertis (indicatif)
+    "EURJPY": (0.01, 6.6),     # 1000 JPY convertis (indicatif)
+    "GBPJPY": (0.01, 6.6),     # idem
+    "AUDJPY": (0.01, 6.6),     # idem
+    "EURGBP": (0.0001, 12.7),  # 10 GBP convertis (indicatif)
     "XAUUSD": (0.10, 10.0),   # 1 lot = 100 oz -> 0.1 $/pip de 0.1
 }
 DEFAULT_PIP_SPEC = (0.0001, 10.0)

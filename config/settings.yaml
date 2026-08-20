@@ -10,7 +10,7 @@ app:
 
 trading:
   # Paires suivies (XAUUSD = future or COMEX GC=F, proxy gratuit du spot)
-  pairs: ["EURUSD", "GBPUSD", "XAUUSD", "USDJPY", "AUDUSD", "USDCAD"]
+  pairs: ["EURUSD", "GBPUSD", "XAUUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF", "EURJPY", "GBPJPY"]
   # Unités de temps utilisées par le moteur
   timeframes:
     fast: "5m"            # momentum court
