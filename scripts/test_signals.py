@@ -201,11 +201,13 @@ def section_b(tmp):
         return
 
     # Plan de risque exact : entrée = bord de l'OB H4 (1.1022), SL = bas OB - 0.1 ATR
+    from src.config import load_config
+    rr_cfg = float(load_config().signals.default_rr or 2.0)
     atr15 = float(compute_atr(m15_df())[-1])
     expected_sl = 1.1006 - 0.1 * atr15
-    expected_tp = 1.1022 + 2.0 * (1.1022 - expected_sl)
+    expected_tp = 1.1022 + rr_cfg * (1.1022 - expected_sl)
     ok = abs(sig.risk.entry - 1.1022) < 1e-9 and abs(sig.risk.sl - expected_sl) < 1e-6 \
-        and abs(sig.risk.tp - expected_tp) < 1e-6 and abs(sig.risk.rr - 2.0) < 1e-9
+        and abs(sig.risk.tp - expected_tp) < 1e-6 and abs(sig.risk.rr - rr_cfg) < 1e-9
     check("plan : entrée 1.1022 / SL bas d'OB − 0.1×ATR / TP = 2R", ok,
           f"entrée {sig.risk.entry}, SL {sig.risk.sl}, TP {sig.risk.tp}, R/R {sig.risk.rr}")
     check("session = London Kill Zone", sig.session == "London Kill Zone", sig.session)
@@ -223,9 +225,11 @@ def section_b(tmp):
     msg = format_signal_message(sig)
     has_emoji = any(0x1F000 <= ord(c) <= 0x1FAFF for c in msg)
     check("message Telegram sans emoji", not has_emoji)
-    check("message contient paire/direction/R-R/score",
-          "EUR/USD" in msg and "Direction   : LONG" in msg and "1:2.0" in msg
-          and "100/100" in msg and "DYOR" in msg)
+    rr_txt = f"1:{sig.risk.rr:.1f}"
+    check("message contient paire/direction/R-R/score/analyses",
+          "EUR/USD" in msg and "Direction   : LONG" in msg and rr_txt in msg
+          and "100/100" in msg and "DYOR" in msg
+          and "ANALYSE TECHNIQUE" in msg and "ANALYSE FONDAMENTALE" in msg)
     print("\n    Message Telegram généré :")
     for line in msg.splitlines()[:14]:
         print("    " + line)
