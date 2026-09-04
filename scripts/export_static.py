@@ -169,7 +169,10 @@ def build_html(signals, stats: dict, cycles: dict | None, cards: list[Path]) -> 
                 "<th>Issue</th><th>R</th></tr>")
         body = []
         for _, r in signals.head(60).iterrows():
-            r_txt = f'{r["exit_r"]:+.1f}' if r["exit_r"] is not None and str(r["exit_r"]) != "None" else "—"
+            try:
+                r_txt = f'{float(r["exit_r"]):+.1f}' if r["exit_r"] == r["exit_r"] else "—"
+            except (TypeError, ValueError):
+                r_txt = "—"
             body.append(
                 f'<tr><td>{str(r["date"])[:16]}</td><td>{r["paire"]}</td>'
                 f'<td>{r["type"]}</td><td>{r["score"]}</td>'

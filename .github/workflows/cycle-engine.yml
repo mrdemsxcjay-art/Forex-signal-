@@ -6,11 +6,8 @@ name: Cycle moteur (cron gratuit)
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/5 * * * *"   # un seul moteur, une seule base : zéro doublon
   workflow_dispatch: {}
-  workflow_run:
-    workflows: ["Cycle moteur relais"]
-    types: [completed]
 
 permissions:
   contents: read

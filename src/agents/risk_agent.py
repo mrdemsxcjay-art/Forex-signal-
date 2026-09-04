@@ -41,6 +41,7 @@ class RiskAgent:
         risk_pct: float = 1.0,
         account_size: float = 10_000.0,
         news_block_minutes: int = 60,
+        min_risk_atr: float = 0.5,
     ) -> None:
         self.min_rr = float(min_rr)
         self.default_rr = float(default_rr)
@@ -48,6 +49,7 @@ class RiskAgent:
         self.risk_pct = float(risk_pct)
         self.account_size = float(account_size)
         self.news_block_minutes = int(news_block_minutes)
+        self.min_risk_atr = float(min_risk_atr)
 
     # ------------------------------------------------------------------ #
     def validate(
@@ -98,6 +100,11 @@ class RiskAgent:
         if risk <= 0:
             blockers.append("zone incohérente : stop du mauvais côté de l'entrée")
             risk = max(risk, 1e-9)
+        elif risk < self.min_risk_atr * atr:
+            blockers.append(
+                f"stop trop serré ({risk:.5f} < {self.min_risk_atr}×ATR) : "
+                "zone trop proche du prix, signal en bruit"
+            )
 
         # --- Objectif : liquidité intacte sinon multiple fixe ---------------
         tp = None
