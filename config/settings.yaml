@@ -30,14 +30,14 @@ data:
 
 signals:
   # Score minimal sur 100 pour émettre (spec : >= 70)
-  min_score: 80   # SPEC PETIT COMPTE : Grade A uniquement (confiance >= 80%)
+  min_score: 65   # Grade B inclus (B 65-74 / A 75-84 / A+ 85+) : cible mesuree 2-3 signaux/jour
   # Anti-spam : max de signaux par paire et par jour
   max_per_pair_per_day: 4
   # Notation /100
   grades:
     - { min: 85, label: "A+" }
     - { min: 75, label: "A" }
-    - { min: 70, label: "B" }
+    - { min: 65, label: "B" }
   # Déclencheur M15 : âge max en bougies (6 x 15 min = 90 min)
   trigger_max_age_candles: 12
   # Zone actionnable (OB/FVG) : distance max au prix, en multiples d'ATR M15
