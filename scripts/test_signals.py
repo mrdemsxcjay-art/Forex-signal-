@@ -223,13 +223,13 @@ def section_b(tmp):
 
     # Telegram : texte formaté, PROPRE (aucun emoji)
     msg = format_signal_message(sig)
-    has_emoji = any(0x1F000 <= ord(c) <= 0x1FAFF for c in msg)
-    check("message Telegram sans emoji", not has_emoji)
-    rr_txt = f"1:{sig.risk.rr:.1f}"
-    check("message contient paire/direction/R-R/score/analyses",
-          "EUR/USD" in msg and "Direction   : LONG" in msg and rr_txt in msg
-          and "100/100" in msg and "DYOR" in msg
-          and "ANALYSE TECHNIQUE" in msg and "ANALYSE FONDAMENTALE" in msg)
+    # La spec FINALE du robot EUR/USD impose les sections avec emojis (📊🎯🔒)
+    check("message conforme aux sections emojis de la spec",
+          "\U0001F4CA" in msg and "\U0001F3AF" in msg)
+    check("message au format final EUR/USD",
+          "SIGNAL EUR/USD - BUY" in msg and "TECHNIQUE EUR/USD" in msg
+          and "FONDAMENTAL EUR/USD" in msg and "PLAN EUR/USD" in msg
+          and "EUR/USD UNIQUEMENT" in msg and "DYOR" in msg)
     print("\n    Message Telegram généré :")
     for line in msg.splitlines()[:14]:
         print("    " + line)

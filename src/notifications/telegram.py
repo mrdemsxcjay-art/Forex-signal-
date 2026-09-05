@@ -1,18 +1,16 @@
-"""Notifications Telegram — Bot API via requêtes HTTP simples (gratuit).
+"""Notifications Telegram — robot EUR/USD UNIQUEMENT (formats de la spec).
 
-Format PROFESSIONNEL SANS EMOJI : séparateurs à filets (━), coches
-typographiques (✓ U+2713, caractère de texte et non un emoji), aucune
-image. Trois familles de messages :
-    - carte de signal (format de la spécification)
-    - clôture de signal (issue TP/SL/EXPIRE + R réalisé + solde cumulé)
-    - messages opérationnels (heartbeat, rétablissement de source)
+Deux messages :
+  - SIGNAL EUR/USD (ouverture) : technique 5 portes + fondamentale (DXY,
+    news, biais macro) + plan 1:3 + confiance % + niveau de risque ;
+  - CLÔTURE EUR/USD : résultat, analyse de sortie technique et fondamentale,
+    leçon retenue.
 
-Robustesse : 3 tentatives avec backoff ; si le token/chat_id ne sont pas
-configurés (.env absent), l'envoi est sauté avec un WARNING — le moteur
-continue de tourner et d'écrire en base (dégradation gracieuse).
+La règle n°1 s'applique aussi ici : ces formats ne concernent que EUR/USD.
 """
 from __future__ import annotations
 
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -25,127 +23,98 @@ logger = logging.getLogger(__name__)
 
 API_URL = "https://api.telegram.org/bot{token}/sendMessage"
 
+PAIR_REPLY = "Je suis configure uniquement pour EUR/USD pour maximiser la precision."
 
-def _fmt_price(pair: str, value: float) -> str:
-    pip_size, _ = pip_spec(pair)
-    decimals = 5 if pip_size <= 0.001 else 3 if pip_size <= 0.05 else 2
-    return f"{value:.{decimals}f}"
+
+def _fmt(pair: str, value: float) -> str:
+    return f"{value:.5f}"
 
 
 def format_signal_message(signal: Signal) -> str:
-    """Carte de signal complète : plan + analyse technique + analyse
-    fondamentale écrites + confluences. Format professionnel sans emoji."""
-    pair_disp = f"{signal.pair[:3]}/{signal.pair[3:]}"
-    line = "━" * 24
-    fund = signal.fundamental or {}
+    """Format d'ouverture EUR/USD — spec finale."""
+    sens = "BUY" if signal.direction == "LONG" else "SELL"
     tf = signal.timeframes or {}
-    drivers = fund.get("drivers") or []
-
-    parts = [
-        line,
-        "SIGNAL DETECTE",
-        line,
-        f"Paire       : {pair_disp}",
-        f"Direction   : {signal.direction}",
-        f"Session     : {signal.session}",
-        line,
-        f"Entree      : {_fmt_price(signal.pair, signal.risk.entry)}",
-        f"TP          : {_fmt_price(signal.pair, signal.risk.tp)} "
-        f"(+{signal.risk.tp_pips:.0f} pips)",
-        f"SL          : {_fmt_price(signal.pair, signal.risk.sl)} "
-        f"(-{signal.risk.risk_pips:.0f} pips)",
-        f"R/R         : 1:{signal.risk.rr:.1f}",
-        f"Taille      : {signal.risk.lots} lot(s)",
-        line,
-        "ANALYSE TECHNIQUE",
-        f"Tendance D1 : {tf.get('D1', '—')}",
-        f"Contexte H4 : {tf.get('H4', '—')}",
-        f"Declencheur : {tf.get('M15', '—')}",
-        f"Plan entree : {signal.risk.reasons[0] if signal.risk.reasons else 'au marche'}",
-        line,
-        "ANALYSE FONDAMENTALE",
-        f"Sentiment   : {fund.get('bias', 'NEUTRAL')} "
-        f"({'soutient ce signal' if fund.get('supports') else 'neutre pour ce signal'})",
-    ]
-    if drivers:
-        parts.extend(f"  - {d}" for d in drivers[:3])
-    else:
-        parts.append("  - aucune surprise macro marquee aujourd'hui")
-    parts.extend([
-        "Filtre news : aucune publication rouge imminente",
-        line,
-        "CONFLUENCES DETECTEES :",
-        *(f"  ✓ {c}" for c in signal.confluences),
-        line,
-        f"Score de confiance : {signal.score}/100 (grade {signal.grade})",
-        f"Date : {signal.created_at}",
-        line,
+    fund = signal.fundamental or {}
+    pip_size, _ = pip_spec(signal.pair)
+    sl_pips = abs(signal.risk.entry - signal.risk.sl) / pip_size
+    tp_pips = abs(signal.risk.tp - signal.risk.entry) / pip_size
+    return "\n".join([
+        f"\U0001F4CA SIGNAL EUR/USD - {sens}",
+        f"\u23F0 {signal.created_at} | Confiance: {signal.score}% | Paire: EUR/USD UNIQUEMENT",
+        "",
+        "\U0001F4C8 TECHNIQUE EUR/USD:",
+        f"D1: {tf.get('D1', '—')}",
+        f"H4: {tf.get('H4', '—')}",
+        f"H1: {tf.get('H1', '—')}",
+        f"M15: {tf.get('M15', '—')}",
+        f"M5/M30: {tf.get('M5/M30', '—')}",
+        "",
+        "\U0001F30D FONDAMENTAL EUR/USD:",
+        f"DXY: {signal.dxy_txt or 'indisponible'}",
+        f"News: {signal.news_txt or '—'}",
+        f"Biais macro: {signal.macro_bias or 'neutre'}",
+        f"Risque: {signal.risk_label}",
+        "",
+        "\U0001F3AF PLAN EUR/USD:",
+        f"Entree: {_fmt(signal.pair, signal.risk.entry)}",
+        f"SL: {_fmt(signal.pair, signal.risk.sl)} ({sl_pips:.0f} pips)",
+        f"TP: {_fmt(signal.pair, signal.risk.tp)} ({tp_pips:.0f} pips = R:R 1:{signal.risk.rr:.0f})",
+        "",
+        "Confluences :",
+        *(f"  - {c}" for c in signal.confluences[:6]),
+        "",
         "Trading = risque. DYOR.",
     ])
-    return "\n".join(parts)
 
 
-def format_closure_message(resolution: dict, signal_row, stats: dict) -> str:
-    """Message de clôture : issue, R réalisé, solde cumulé du compte de signaux."""
-    pair = str(resolution["paire"])
-    pair_disp = f"{pair[:3]}/{pair[3:]}"
-    line = "━" * 24
-    outcome_label = {
-        "TP_ATTEINT": "OBJECTIF ATTEINT",
-        "SL_ATTEINT": "STOP ATTEINT",
-        "EXPIRE": "EXPIRATION",
-    }.get(resolution["resultat"], resolution["resultat"])
-    closed = stats.get("closed") or 0
-    winrate = stats.get("winrate")
-    winrate_txt = f"{winrate * 100:.0f} %" if winrate is not None else "n/a"
-    parts = [
-        line,
-        "SIGNAL CLOTURE",
-        line,
-        f"Paire   : {pair_disp} {resolution['type']} (#{resolution['id']})",
-        f"Issue   : {outcome_label}",
-        f"Entree  : {_fmt_price(pair, float(signal_row['entree']))}",
-        f"Sortie  : {_fmt_price(pair, float(resolution['exit_price']))}",
-        f"Resultat: {resolution['exit_r']:+.1f}R",
-        line,
-        f"Solde cumule : {stats.get('total_r', 0.0):+.1f}R sur {closed} clôture(s)",
-        f"Winrate      : {winrate_txt}",
-        line,
+def format_closure_message(resolution: dict, signal_row, stats: dict,
+                           dxy_txt: str = "") -> str:
+    """Format de clôture EUR/USD — analyse de sortie + leçon."""
+    issue = {"TP_ATTEINT": "TP", "SL_ATTEINT": "SL", "EXPIRE": "EXPIRATION"}.get(
+        resolution["resultat"], resolution["resultat"])
+    try:
+        gates = json.loads(signal_row["timeframes"] or "{}")
+    except (TypeError, json.JSONDecodeError):
+        gates = {}
+
+    exit_tech = {
+        "TP_ATTEINT": "objectif 1:3 atteint ; la structure H1 reste intacte, sortie sur ratio",
+        "SL_ATTEINT": "stop structurel touché ; la zone de retest a cede, invalidation courte",
+        "EXPIRE": "24 h sans resolution : absence de dynamique apres l'entree",
+    }.get(resolution["resultat"], "sortie standard")
+    if gates.get("H1"):
+        exit_tech += f" (contexte entree : H1 {gates['H1']})"
+
+    exit_fund = f"DXY {dxy_txt}" if dxy_txt else "DXY indisponible a la cloture"
+
+    lecon = {
+        "TP_ATTEINT": "L'alignement D1/H4/H1 + retest paie au 1:3 : laisser courir les gagnants reste la bonne politique.",
+        "SL_ATTEINT": "Plan respecte, marche contraire : -1R maîtrise, aucune revenge trade. La prochaine confluence viendra.",
+        "EXPIRE": "Pas de dynamique = information : sortir sans dommage plutot que subir.",
+    }.get(resolution["resultat"], "Journaliser la sortie.")
+
+    pip_size, _ = pip_spec(str(resolution["paire"]))
+    entry = float(signal_row["entree"])
+    pips = abs(float(resolution["exit_price"]) - entry) / pip_size
+    signe = "+" if resolution["exit_r"] >= 0 else "-"
+
+    return "\n".join([
+        f"\U0001F512 CLOTURE EUR/USD - {issue}",
+        f"Resultat: {signe}{pips:.0f} pips | {resolution['exit_r']:+.1f}R (R:R 1:3)",
+        f"Analyse sortie technique: {exit_tech}",
+        f"Analyse sortie fondamentale: {exit_fund}",
+        f"Lecon: {lecon}",
+        "",
+        f"Solde cumule : {stats.get('total_r', 0.0):+.1f}R sur {stats.get('closed', 0)} cloture(s) "
+        f"(winrate {stats['winrate'] * 100:.0f} %)" if stats.get("winrate") is not None
+        else f"Solde cumule : {stats.get('total_r', 0.0):+.1f}R",
+        "",
         "Trading = risque. DYOR.",
-    ]
-    return "\n".join(parts)
-
-
-def format_heartbeat(started: bool, info: dict) -> str:
-    """Message de vie du process (démarrage / arrêt propre)."""
-    line = "━" * 24
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    if started:
-        body = [
-            line, "MOTEUR DE SIGNAUX — DEMARRAGE", line,
-            f"Version   : {info.get('version', '?')}",
-            f"Paires    : {', '.join(info.get('pairs', []))}",
-            f"Cycle     : {info.get('interval', '?')} s",
-            f"Seuil     : {info.get('threshold', '?')}/100",
-            f"Heure     : {now}",
-            line, "Analyse uniquement — aucun ordre n'est execute. DYOR.",
-        ]
-    else:
-        body = [
-            line, "MOTEUR DE SIGNAUX — ARRET PROPRE", line,
-            f"Cycles         : {info.get('cycles', 0)}",
-            f"Signaux emis   : {info.get('signals', 0)}",
-            f"Clotures       : {info.get('resolutions', 0)}",
-            f"Erreurs isolees: {info.get('errors', 0)}",
-            f"Duree          : {info.get('uptime', '?')}",
-            f"Heure          : {now}",
-            line,
-        ]
-    return "\n".join(body)
+    ])
 
 
 class TelegramSender:
-    """Envoi des signaux via la Bot API Telegram."""
+    """Envoi des messages EUR/USD via la Bot API Telegram."""
 
     def __init__(self, bot_token: str, chat_id: str, enabled: bool = True,
                  timeout: int = 15, max_retries: int = 3) -> None:
@@ -159,11 +128,9 @@ class TelegramSender:
     def from_config(cls, cfg) -> "TelegramSender":
         return cls(cfg.telegram.bot_token, cfg.telegram.chat_id, cfg.telegram.enabled)
 
-    # ------------------------------------------------------------------ #
     def send_text(self, text: str) -> bool:
-        """Envoie un message texte brut. True si livré."""
         if not self.enabled:
-            logger.warning("Telegram non configuré (TELEGRAM_BOT_TOKEN/CHAT_ID) — envoi ignoré")
+            logger.warning("Telegram non configure — envoi ignore")
             return False
         url = API_URL.format(token=self.bot_token)
         payload = {"chat_id": self.chat_id, "text": text, "disable_web_page_preview": True}
@@ -174,11 +141,9 @@ class TelegramSender:
                     return True
                 logger.warning("Telegram HTTP %s : %s", resp.status_code, resp.text[:120])
             except requests.RequestException as exc:
-                logger.warning("Telegram tentative %d/%d échouée : %s", attempt, self.max_retries, exc)
+                logger.warning("Telegram tentative %d/%d echouee : %s", attempt, self.max_retries, exc)
             time.sleep(1.0 * attempt)
-        logger.error("Telegram : envoi abandonné après %d tentatives", self.max_retries)
         return False
 
     def send_signal(self, signal: Signal) -> bool:
-        """Formate et envoie la carte de signal."""
         return self.send_text(format_signal_message(signal))

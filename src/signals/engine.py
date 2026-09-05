@@ -26,11 +26,13 @@ from pathlib import Path
 
 import pandas as pd
 
+from ..agents.eurusd_agent import GATE_TIMEFRAMES, EURUSDAgent
 from ..agents.fundamental_agent import FundamentalAgent
 from ..agents.risk_agent import RiskAgent
 from ..agents.smc_agent import SMCAgent
 from ..config import Config
 from ..data.data_fetcher import DataFetcher
+from ..data.provider import Timeframe
 from ..notifications.telegram import TelegramSender
 from ..storage.database import SignalDatabase
 from ..visualization.signal_card import save_signal_card
@@ -69,6 +71,7 @@ class SignalEngine:
             news_block_minutes=config.news.block_minutes_before if config else 60,
         )
         self.fundamental = fundamental or FundamentalAgent()
+        self.eurusd = EURUSDAgent()
         self.telegram = telegram or (
             TelegramSender.from_config(config) if config else TelegramSender("", "", enabled=False)
         )
@@ -174,6 +177,118 @@ class SignalEngine:
     # ------------------------------------------------------------------ #
     def run_pair(self, pair: str, now: pd.Timestamp | None = None) -> CycleReport:
         now = now or pd.Timestamp.now(tz="UTC")
+        # REGLE N°1 ABSOLUE : ce robot est exclusivement EUR/USD.
+        if pair.upper() != "EURUSD":
+            logger.warning("Paire '%s' ignoree : configure uniquement pour EUR/USD", pair)
+            return CycleReport(
+                pair=pair.upper(), generated_at=utc_now_iso(), candidate_direction=None,
+                aligned=False, alignment_detail={}, score=0, breakdown={},
+                passed_threshold=False, risk_valid=False,
+                blockers=["configure uniquement pour EUR/USD"],
+            )
+        lookbacks = {Timeframe.D1: 400, Timeframe.H4: 90, Timeframe.H1: 60,
+                     Timeframe.M30: 30, Timeframe.M15: 30, Timeframe.M5: 30}
+        frames = {tf: self.fetcher.get_candles("EURUSD", tf, lookback_days=days)
+                  for tf, days in lookbacks.items()}
+        return self.run_eurusd(frames, now)
+
+    def run_eurusd(self, frames: dict, now: pd.Timestamp) -> CycleReport:
+        """Pipeline spec finale : 5 portes -> confiance -> news 2 h -> plan 1:3."""
+        from ..fundamental.dxy import get_dxy
+        from ..signals.models import FundamentalView, RiskPlan, pip_spec
+
+        report = CycleReport(
+            pair="EURUSD", generated_at=utc_now_iso(), candidate_direction=None,
+            aligned=False, alignment_detail={}, score=0, breakdown={},
+            passed_threshold=False, risk_valid=False, blockers=[],
+        )
+        try:
+            dxy = get_dxy()
+        except Exception:  # noqa: BLE001
+            dxy = None
+
+        # fondamental EUR/USD (Agent 1) + prochaine news HIGH EUR/USD
+        bias = None
+        try:
+            bias = self.fundamental.analyzer.get_pair_bias("EURUSD", now=now)
+            fund_view = FundamentalView(
+                bias.label, bias.score, False,
+                [f"{s.currency} {d}" for s in (bias.base, bias.quote) if s
+                 for d in s.drivers[:2]],
+                False,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("fondamental indisponible : %s", exc)
+            fund_view = FundamentalView("NEUTRAL", 0.0, False, [], False)
+        news_hours = None
+        try:
+            upcoming = self.fundamental.analyzer.next_high_impact_events(now=now)
+            eur_usd = upcoming[upcoming["devise"].isin(["EUR", "USD"])] if not upcoming.empty else upcoming
+            if not eur_usd.empty:
+                news_hours = float(eur_usd.iloc[0]["dans_min"]) / 60.0
+        except Exception:  # noqa: BLE001
+            pass
+
+        view = self.eurusd.assess(frames, dxy, fund_view, news_hours, now)
+        report.candidate_direction = view.direction
+        report.alignment_detail = view.gates
+        report.blockers = list(view.blockers)
+        if view.direction is None:
+            return report
+        report.aligned = True
+
+        wanted = "BULLISH" if view.direction == "LONG" else "BEARISH"
+        supports = bias is not None and bias.label == wanted and abs(bias.score) >= 1.2
+
+        report.score = view.score
+        report.breakdown = view.breakdown
+        report.passed_threshold = view.score >= self.threshold
+        if not report.passed_threshold:
+            report.blockers.append(f"confiance {view.score}% < seuil {self.threshold:.0f}%")
+            return report
+        if news_hours is not None and news_hours < 2:
+            report.blockers.append(f"news HIGH EUR/USD dans {news_hours:.1f} h (< 2 h) : signal bloque")
+            return report
+
+        pip_size, pip_value = pip_spec("EURUSD")
+        risk_abs = abs(view.entry - view.sl)
+        tp_abs = abs(view.tp - view.entry)
+        plan = RiskPlan(
+            valid=True, entry=round(view.entry, 6), sl=round(view.sl, 6),
+            tp=round(view.tp, 6), rr=view.rr,
+            risk_pips=round(risk_abs / pip_size, 1),
+            tp_pips=round(tp_abs / pip_size, 1),
+            lots=round((self.risk_agent.account_size * self.risk_agent.risk_pct / 100)
+                       / (risk_abs / pip_size * pip_value), 2),
+            reasons=["entree : retest de zone/cassure M15",
+                     "stop : structure (min 0.5 ATR)", "objectif : 1:3 fixe"],
+        )
+        report.risk_valid = True
+
+        spam = self._spam_blockers("EURUSD", now)
+        if spam:
+            report.blockers.extend(spam)
+            return report
+
+        fund_view = FundamentalView(fund_view.bias, fund_view.score, supports,
+                                    fund_view.drivers, fund_view.high_impact_soon)
+        signal = Signal(
+            pair="EURUSD", direction=view.direction, score=view.score,
+            grade=grade_of(view.score, self.grades) or "B",
+            session=session_label(now), risk=plan,
+            confluences=view.confluences, breakdown=view.breakdown,
+            timeframes=view.gates,
+            fundamental={"bias": fund_view.bias, "score": fund_view.score,
+                         "drivers": fund_view.drivers[:3]},
+            risk_label=view.risk_label, dxy_txt=view.dxy_txt,
+            news_txt=view.news_txt, macro_bias=view.macro_bias,
+            created_at=now.strftime("%Y-%m-%d %H:%M:%S") + " UTC",
+        )
+        report.signal = signal
+        self._dispatch(signal, report)
+        return report
+
+    def _legacy_run_pair(self, pair: str, now: pd.Timestamp | None = None) -> CycleReport:
         mtd = self.fetcher.get_multi_timeframe_data(pair, DEFAULT_TIMEFRAMES)
         d1, h4, m15 = mtd.frames.get(_tf("1d")), mtd.frames.get(_tf("4h")), mtd.frames.get(_tf("15m"))
         if d1 is None or h4 is None or m15 is None or d1.empty or h4.empty or m15.empty:
@@ -213,6 +328,12 @@ class SignalEngine:
 
 
 # --------------------------------------------------------------------------- #
+def session_label(now: pd.Timestamp) -> str:
+    from .scoring import get_session
+
+    return get_session(now)[0]
+
+
 def _tf(value: str):
     from ..data.provider import Timeframe
 

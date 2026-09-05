@@ -101,6 +101,11 @@ class Signal:
     fundamental: dict
     created_at: str = field(default_factory=utc_now_iso)
     db_id: int | None = None
+    # Champs stratégie EUR/USD (format final)
+    risk_label: str = "MOYEN"
+    dxy_txt: str = ""
+    news_txt: str = ""
+    macro_bias: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -122,6 +127,10 @@ class Signal:
             "fundamental": self.fundamental,
             "created_at": self.created_at,
             "db_id": self.db_id,
+            "risk_label": self.risk_label,
+            "dxy_txt": self.dxy_txt,
+            "news_txt": self.news_txt,
+            "macro_bias": self.macro_bias,
         }
 
 

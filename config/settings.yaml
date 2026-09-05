@@ -10,7 +10,7 @@ app:
 
 trading:
   # Paires suivies (XAUUSD = future or COMEX GC=F, proxy gratuit du spot)
-  pairs: ["EURUSD", "GBPUSD", "XAUUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF", "EURJPY", "GBPJPY"]
+  pairs: ["EURUSD"]   # REGLE N°1 : EUR/USD UNIQUEMENT, aucune exception
   # Unités de temps utilisées par le moteur
   timeframes:
     fast: "5m"            # momentum court
@@ -30,7 +30,7 @@ data:
 
 signals:
   # Score minimal sur 100 pour émettre (spec : >= 70)
-  min_score: 65
+  min_score: 65   # confiance minimale en %
   # Anti-spam : max de signaux par paire et par jour
   max_per_pair_per_day: 3
   # Notation /100
@@ -49,15 +49,15 @@ signals:
   risk_pct: 2.0
   account_size: 50
   # Cooldown anti-spam entre deux signaux d'une même paire (minutes)
-  cooldown_minutes: 120
+  cooldown_minutes: 180  # cible 2-4 signaux/jour max
 
 news:
   enabled: true
   # Filtrage du calendrier économique ForexFactory (JSON public gratuit)
   high_impact_only: true
   # Fenêtre d'interdiction de signal autour d'une news à fort impact
-  block_minutes_before: 30
-  block_minutes_after: 30
+  block_minutes_before: 120  # spec : news HIGH < 2 h = signal bloqué
+  block_minutes_after: 120
 
 telegram:
   # Peut aussi être piloté par TELEGRAM_ENABLED dans .env

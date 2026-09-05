@@ -35,6 +35,7 @@ class Timeframe(Enum):
 
     M5 = "5m"
     M15 = "15m"
+    M30 = "30m"
     H1 = "1h"
     H4 = "4h"   # non natif Yahoo : téléchargé en H1 puis ré-échantillonné
     D1 = "1d"
@@ -64,6 +65,7 @@ class Timeframe(Enum):
 _TIMEFRAME_DELTAS = {
     Timeframe.M5: pd.Timedelta(minutes=5),
     Timeframe.M15: pd.Timedelta(minutes=15),
+    Timeframe.M30: pd.Timedelta(minutes=30),
     Timeframe.H1: pd.Timedelta(hours=1),
     Timeframe.H4: pd.Timedelta(hours=4),
     Timeframe.D1: pd.Timedelta(hours=24),
@@ -77,6 +79,7 @@ _RESAMPLE_RULE: dict["Timeframe", str] = {Timeframe.H4: "4h"}
 _TIMEFRAME_ALIASES = {
     "5m": Timeframe.M5, "m5": Timeframe.M5, "5min": Timeframe.M5,
     "15m": Timeframe.M15, "m15": Timeframe.M15, "15min": Timeframe.M15,
+    "30m": Timeframe.M30, "m30": Timeframe.M30, "30min": Timeframe.M30,
     "1h": Timeframe.H1, "h1": Timeframe.H1, "60m": Timeframe.H1,
     "4h": Timeframe.H4, "h4": Timeframe.H4, "240m": Timeframe.H4,
     "1d": Timeframe.D1, "d1": Timeframe.D1, "daily": Timeframe.D1, "day": Timeframe.D1,

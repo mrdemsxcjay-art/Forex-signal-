@@ -125,8 +125,12 @@ class SignalTracker:
         )
         if self.telegram is not None:
             try:
+                from ..fundamental.dxy import get_dxy
+
+                dxy = get_dxy()
                 self.telegram.send_text(
-                    format_closure_message(resolution, row, self.db.stats())
+                    format_closure_message(resolution, row, self.db.stats(),
+                                           dxy_txt=str(dxy) if dxy else "")
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("[tracker] notification de clôture impossible : %s", exc)
