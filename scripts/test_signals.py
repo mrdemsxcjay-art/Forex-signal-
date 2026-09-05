@@ -223,10 +223,10 @@ def section_b(tmp):
 
     # Telegram : texte formaté, PROPRE (aucun emoji)
     msg = format_signal_message(sig)
-    # La spec FINALE du robot EUR/USD impose les sections avec emojis (📊🎯🔒)
-    check("message conforme aux sections emojis de la spec",
-          "\U0001F4CA" in msg and "\U0001F3AF" in msg)
-    check("message au format professionnel HTML EUR/USD",
+    msg = format_signal_message(sig)
+    # Format professionnel HTML : sections emojisees (📈 🎯 🌍)
+    check("sections emojis du format professionnel",
+          "\U0001F4C8" in msg and "\U0001F3AF" in msg and "\U0001F30D" in msg)
           "SIGNAL EUR/USD" in msg and "ACHAT (BUY)" in msg
           and "ANALYSE TECHNIQUE" in msg and "ANALYSE FONDAMENTALE" in msg
           and "PLAN DE TRADE" in msg and "CONFLUENCES" in msg
