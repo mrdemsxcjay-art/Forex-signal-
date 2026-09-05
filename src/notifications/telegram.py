@@ -113,6 +113,34 @@ def format_closure_message(resolution: dict, signal_row, stats: dict,
     ])
 
 
+
+
+def format_heartbeat(started: bool, info: dict) -> str:
+    """Message de vie du process EUR/USD (demarrage / arret propre)."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    if started:
+        body = [
+            "\U0001F4CA MOTEUR EUR/USD - DEMARRAGE",
+            f"Paire   : EUR/USD UNIQUEMENT",
+            f"Cycle   : {info.get('interval', '?')} s",
+            f"Confiance min : {info.get('threshold', '?')}%",
+            f"R:R     : 1:3 | News HIGH < 2 h = blocage",
+            f"Heure   : {now}",
+            "Analyse uniquement - aucun ordre execute. DYOR.",
+        ]
+    else:
+        body = [
+            "\U0001F512 MOTEUR EUR/USD - ARRET PROPRE",
+            f"Cycles        : {info.get('cycles', 0)}",
+            f"Signaux emis  : {info.get('signals', 0)}",
+            f"Clotures      : {info.get('resolutions', 0)}",
+            f"Erreurs isolees: {info.get('errors', 0)}",
+            f"Duree         : {info.get('uptime', '?')}",
+            f"Heure         : {now}",
+        ]
+    return "\n".join(body)
+
+
 class TelegramSender:
     """Envoi des messages EUR/USD via la Bot API Telegram."""
 
