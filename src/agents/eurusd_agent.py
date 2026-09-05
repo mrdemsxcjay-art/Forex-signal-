@@ -61,7 +61,7 @@ class StrategyView:
 class EURUSDAgent:
     """Le robot EUR/USD unique : analyse, décide, chiffre."""
 
-    def __init__(self, trigger_max_age_m15: int = 12, retest_atr: float = 0.8,
+    def __init__(self, trigger_max_age_m15: int = 18, retest_atr: float = 1.2,
                  min_risk_atr: float = 0.5, rr: float = 3.0) -> None:
         self.trigger_max_age = int(trigger_max_age_m15)
         self.retest_atr = float(retest_atr)
@@ -135,12 +135,16 @@ class EURUSDAgent:
         last_h1 = smc_h1["events"]["structure"][-1] if smc_h1["events"]["structure"] else None
         h1_ema_dir = "bullish" if float(h1["close"].iloc[-1]) > ema50_h1 else "bearish"
         h1_struct_dir = last_h1["direction"] if last_h1 else None
-        if h1_ema_dir == h4_dir and (h1_struct_dir in (None, h4_dir)):
+        # MODE ACTIF : la direction H1 vient de l'EMA50 ; une structure H1
+        # contraire est toleree (information "en re-formation"), la cassure
+        # M15 alignee fait foi pour le timing.
+        if h1_ema_dir == h4_dir:
             h1_dir = h4_dir
-            view.gates["H1"] = f"alignée ({h1_dir}, EMA50 {ema50_h1:.5f})"
+            extra = "" if h1_struct_dir in (None, h4_dir) else f" (structure H1 {h1_struct_dir} en re-formation)"
+            view.gates["H1"] = f"alignée ({h1_dir}, EMA50 {ema50_h1:.5f}){extra}"
         else:
             view.blockers.append(
-                f"H1 ({h1_ema_dir}, struct {h1_struct_dir}) non alignée avec H4 ({h4_dir})"
+                f"H1 ({h1_ema_dir}) non alignée avec H4 ({h4_dir})"
             )
             return view
 
@@ -172,18 +176,18 @@ class EURUSDAgent:
         view.gates["M15"] = (f"{trigger['type']} {h4_dir} + retest "
                              f"{'en zone' if in_zone else 'du niveau'}, RSI {rsi_m15:.0f}")
 
-        # ---------------- PORTE 5 : M5 / M30 (confirmation) -----------------
+        # ---------------- PORTE 5 : M5 / M30 (confirmation = BONUS) ---------
+        # MODE ACTIF : la bougie de confirmation n'est plus bloquante ; elle
+        # rapporte +10 de confiance. Sans elle, l'entree se fait au marche
+        # et le seuil eleve (75%) exige d'autres confluences (DXY, fondamental).
         conf5 = confirmation_candle(m5, h4_dir, lookback=6)
         conf30 = confirmation_candle(m30, h4_dir, lookback=3)
-        if conf5 is None and conf30 is None:
-            view.blockers.append("aucune bougie de confirmation M5/M30 (engulfing / pin bar)")
-            return view
         parts = []
         if conf30:
             parts.append(f"M30 : {conf30['kind']}")
         if conf5:
             parts.append(f"M5 : {conf5['kind']}")
-        view.gates["M5/M30"] = " + ".join(parts)
+        view.gates["M5/M30"] = " + ".join(parts) if parts else "aucune confirmation recente (entree au marche)" 
 
         # ---------------- Direction + plan ----------------------------------
         direction = "LONG" if h4_dir == "bullish" else "SHORT"
@@ -213,11 +217,9 @@ class EURUSDAgent:
         if in_zone and z is not None:
             bd["retest_en_zone"] = 10
             confs.append(f"Retest dans la zone {z['id']}")
-        if conf5 and conf30:
+        if conf5 or conf30:
             bd["confirmation_m5_m30"] = 10
-        elif conf5 or conf30:
-            bd["confirmation_partielle"] = 5
-        confs.append(" / ".join(parts))
+            confs.append(" / ".join(parts))
         if dxy is not None:
             dollar_weak = dxy.change_pct <= -0.10
             dollar_strong = dxy.change_pct >= 0.10
