@@ -30,7 +30,7 @@ data:
 
 signals:
   # Score minimal sur 100 pour émettre (spec : >= 70)
-  min_score: 65   # mode ACTIF calibre : ~2-3 signaux/jour en production (mesure 21j)
+  min_score: 80   # SPEC PETIT COMPTE : Grade A uniquement (confiance >= 80%)
   # Anti-spam : max de signaux par paire et par jour
   max_per_pair_per_day: 4
   # Notation /100

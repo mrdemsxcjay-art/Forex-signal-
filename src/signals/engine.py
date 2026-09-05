@@ -250,7 +250,7 @@ class SignalEngine:
             report.blockers.append(f"news HIGH EUR/USD dans {news_hours:.1f} h (< 2 h) : signal bloque")
             return report
 
-        pip_size, pip_value = pip_spec("EURUSD")
+        pip_size, _ = pip_spec("EURUSD")
         risk_abs = abs(view.entry - view.sl)
         tp_abs = abs(view.tp - view.entry)
         plan = RiskPlan(
@@ -258,10 +258,9 @@ class SignalEngine:
             tp=round(view.tp, 6), rr=view.rr,
             risk_pips=round(risk_abs / pip_size, 1),
             tp_pips=round(tp_abs / pip_size, 1),
-            lots=round((self.risk_agent.account_size * self.risk_agent.risk_pct / 100)
-                       / (risk_abs / pip_size * pip_value), 2),
+            lots=0.01,   # SPEC PETIT COMPTE : lot FIXE, aucun calcul de position
             reasons=["entree : retest de zone/cassure M15",
-                     "stop : structure (min 0.5 ATR)", "objectif : 1:3 fixe"],
+                     "stop : structure, minimum 12 pips", "objectif : 1:3 (min 36 pips)"],
         )
         report.risk_valid = True
 

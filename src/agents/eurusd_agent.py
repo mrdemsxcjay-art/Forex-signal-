@@ -205,9 +205,12 @@ class EURUSDAgent:
         base = min(base, swing) if long_side else max(base, swing)   # stop structure large
         sl = base - 0.1 * atr if long_side else base + 0.1 * atr
         risk = (entry - sl) if long_side else (sl - entry)
-        if risk < self.min_risk_atr * atr:                            # plancher anti-bruit
-            sl = entry - self.min_risk_atr * atr if long_side else entry + self.min_risk_atr * atr
-            risk = self.min_risk_atr * atr
+        # SPEC PETIT COMPTE : SL >= 12 pips (0.00120) -> TP >= 36 pips au 1:3.
+        # Le stop est ELARGI au minimum, jamais réduit : le ratio 1:3 est sacré.
+        min_risk = max(12 * 0.0001, self.min_risk_atr * atr)
+        if risk < min_risk:
+            risk = min_risk
+            sl = entry - risk if long_side else entry + risk
         tp = entry + self.rr * risk if long_side else entry - self.rr * risk
         view.entry, view.sl, view.tp = entry, sl, tp
 

@@ -211,7 +211,10 @@ def section_b(tmp):
     check("plan : entrée 1.1022 / SL bas d'OB − 0.1×ATR / TP = 2R", ok,
           f"entrée {sig.risk.entry}, SL {sig.risk.sl}, TP {sig.risk.tp}, R/R {sig.risk.rr}")
     check("session = London Kill Zone", sig.session == "London Kill Zone", sig.session)
-    check("sizing : 1 % de 10 000 -> lots cohérents", 0 < sig.risk.lots <= 1.0, f"{sig.risk.lots} lots")
+    check("lot FIXE 0.01 (spec petit compte)", sig.risk.lots == 0.01, f"{sig.risk.lots} lot")
+    check("SL >= 12 pips et TP = 3x (spec petit compte)",
+          sig.risk.risk_pips >= 12 and abs(sig.risk.tp_pips - 3 * sig.risk.risk_pips) < 0.2,
+          f"SL {sig.risk.risk_pips} pips / TP {sig.risk.tp_pips} pips")
 
     # Persistance
     check("signal enregistré en SQLite", report.stored and sig.db_id is not None, f"id={sig.db_id}")
@@ -258,8 +261,9 @@ def section_c(tmp, engine_b):
     check("M15 baissier contre D1 haussier -> bloqué (biais D1)",
           rep.signal is None and any("biais D1" in b for b in rep.blockers), str(rep.blockers))
 
-    # C2 : sentiment fondamental contraire -> 75/100, toujours >= 70
+    # C2 : sentiment fondamental contraire -> 75/100 (seuil test fixe 70)
     eng = fresh_engine(tmp + "_c2", calendar(eur_bullish=False))
+    eng.threshold = 70
     rep = eng.run_on_frames("EURUSD", d1_bullish(), h4_df(), m15_df(), now=NOW)
     check("sentiment contraire -> 75/100 (seuil franchi)",
           rep.signal is not None and rep.score == 75 and rep.signal.grade == "A",
@@ -268,6 +272,7 @@ def section_c(tmp, engine_b):
     # C3 : hors session -> 90, composante session à 0
     #     (news calée sur NOW_OFF : le sentiment décroît avec l'ancienneté)
     eng = fresh_engine(tmp + "_c3", calendar(now=NOW_OFF))
+    eng.threshold = 70
     rep = eng.run_on_frames("EURUSD", d1_bullish(), h4_df(), m15_df(), now=NOW_OFF)
     check("hors session -> 90 (session = 0)",
           rep.signal is not None and rep.score == 90 and rep.breakdown["session"] == 0,
