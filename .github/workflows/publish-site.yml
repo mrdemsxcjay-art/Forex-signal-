@@ -39,9 +39,9 @@ jobs:
           path: |
             data/signals.db
             data/last_cycle.json
-          key: signals-db-${{ github.run_id }}
+          key: signalsdb-v2-${{ github.run_id }}
           restore-keys: |
-            signals-db-
+            signalsdb-v2-
 
       - name: Générer le site statique
         run: python scripts/export_static.py
