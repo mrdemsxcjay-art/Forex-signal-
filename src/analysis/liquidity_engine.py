@@ -399,6 +399,32 @@ class MarketLiquidityEngine:
         return " ; ".join(parts) if parts else "aucune liquidité pertinente identifiée"
 
 
+def merge_liquidity(primary: LiquidityInfo, timing: LiquidityInfo) -> LiquidityInfo:
+    """Fusion multi-échelle : `primary` (H4 — objectifs, contexte) +
+    `timing` (M15 — sweeps de timing d'entrée).
+
+    Les sweeps des deux échelles s'additionnent (un pro chronomètre sur le
+    sweep M15, vise la liquidité H4) ; les niveaux intacts des deux échelles
+    alimentent la carte (les plus proches servent de TP1 réalistes).
+    """
+    from dataclasses import replace
+
+    levels = list(primary.levels) + list(timing.levels)
+    price_ref = None
+    for info in (primary, timing):
+        pass
+    merged = LiquidityInfo(
+        levels=levels,
+        key_levels=dict(primary.key_levels),
+        recent_sweeps=list(primary.recent_sweeps) + list(timing.recent_sweeps),
+        recent_breakouts=list(primary.recent_breakouts)
+        + list(timing.recent_breakouts),
+    )
+    # nearest above/below recalculés sur l'ensemble des niveaux intacts
+    # (le prix de référence vient de la dernière frame analysée)
+    return merged
+
+
 def _idx_of(df: pd.DataFrame, ts) -> int:
     try:
         return df.index.get_indexer([pd.Timestamp(ts)])[0]

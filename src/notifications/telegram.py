@@ -87,10 +87,32 @@ def format_signal_message(signal: Signal) -> str:
         "<b>💰 PLAN DE TRADE</b>",
         SUB,
         f"🔵 <b>Entrée</b>   : {_px(signal.risk.entry)}",
-        f"🔴 <b>Stop</b>     : {_px(signal.risk.sl)}  (−{sl_pips:.0f} pips)",
-        f"🟢 <b>Objectif</b> : {_px(signal.risk.tp)}  (+{tp_pips:.0f} pips → 1:{signal.risk.rr:.0f})",
-        f"📦 <b>Taille</b>   : {signal.risk.lots} lot(s)",
+        f"🔴 <b>Stop</b>     : {_px(signal.risk.sl)}  (−{sl_pips:.0f} pips → 1:{signal.risk.rr:.0f})",
+        f"🟢 <b>TP1</b>      : {_px(signal.risk.tp)}  (+{tp_pips:.0f} pips)",
     ])
+    tp2 = (tf.get("TP2") or "").strip()
+    tp3 = (tf.get("TP3") or "").strip()
+    try:
+        if tp2:
+            lignes.append(f"🟢 <b>TP2</b>      : {_px(float(tp2))}  "
+                          f"(+{(float(tp2) - signal.risk.entry) / pip_size:.0f} pips)")
+        if tp3:
+            lignes.append(f"🟢 <b>TP3</b>      : {_px(float(tp3))}  "
+                          f"(+{(float(tp3) - signal.risk.entry) / pip_size:.0f} pips)")
+    except (TypeError, ValueError):
+        pass
+    lignes.append(f"📦 <b>Taille</b>   : {signal.risk.lots} lot(s)")
+    setup = (tf.get("SETUP") or "").strip()
+    why = (tf.get("WHY_NOW") or "").strip()
+    inval = (tf.get("INVALIDATION") or "").strip()
+    if setup or why or inval:
+        lignes.extend(["", "<b>🧠 THÈSE DU TRADE</b>", SUB])
+        if setup:
+            lignes.append(f"📌 {_e(setup)}")
+        if why:
+            lignes.append(f"⏱️ <b>Pourquoi maintenant</b> : {_e(why)}")
+        if inval:
+            lignes.append(f"❌ <b>Invalidation</b> : {_e(inval)}")
     if signal.confluences:
         lignes.extend([
             "",

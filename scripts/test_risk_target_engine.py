@@ -119,13 +119,25 @@ def main() -> int:
           and plan.rr3 > plan.rr2 > plan.rr1 >= 1.5,
           f"rr1/2/3 = {plan.rr1}/{plan.rr2}/{plan.rr3}")
 
-    # 5. §21 : RR disponible insuffisant -> plan INVALIDE, TP non inventé
-    plan = engine().build_plan("LONG", zone_bull(), PRICE, regime(),
-                               liq(levels_above=(1.0968,)), m15(), h4())
-    check("première liquidité à ~0.3R -> BAD_RR (aucun TP inventé)",
+    # 5. §21 : tous les candidats trop proches -> BAD_RR, aucun TP inventé
+    #    (liquidité ET swing M15 sous le minimum)
+    plan = engine().build_plan("LONG", zone_bull(), PRICE, regime(trend=True),
+                               liq(levels_above=(1.0968,)),
+                               m15(lows=1.0938, highs=1.0970), h4())
+    check("seule structure à ~0.3R -> BAD_RR (aucun TP inventé)",
           not plan.valid and plan.invalid_code == INVALID_RR
-          and plan.tp1 is not None and abs(plan.tp1 - 1.0968) < 1e-4,
+          and plan.tp1 is None,
           plan.invalid_reason[:80])
+
+    # 5bis. §21 : obstacle court (0.5R) SAUTÉ, TP1 = structure qui paie (~2R)
+    #    (le swing M15 1.1015 et l'EQH 1.1017 se dédupliquent : même zone)
+    plan = engine().build_plan("LONG", zone_bull(), PRICE, regime(),
+                               liq(levels_above=(1.0974, 1.1017)),
+                               m15(lows=1.0938, highs=1.1015), h4())
+    check("TP1 saute l'obstacle à 0.5R et vise la structure à ~2R",
+          plan.valid and plan.tp1 is not None
+          and abs(plan.tp1 - 1.1015) < 0.0003 and plan.rr1 >= 1.9,
+          f"TP1 {plan.tp1} rr1 {plan.rr1}")
 
     # 6. §21 : le marché offre exactement ~1.5R -> plan VALIDE avec ce TP
     #    risque = 1.0960 - 1.09315 = 0.00285 ; 1.5R -> TP1 ≈ 1.100275

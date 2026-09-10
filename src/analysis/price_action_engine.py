@@ -78,7 +78,9 @@ class PriceActionEngine:
     def __init__(
         self,
         swing_k: int = 4,
-        lookback: int = 3,               # bougies récentes scannées pour les patterns
+        lookback: int = 8,               # bougies récentes scannées (2 h en M15 :
+                                         #  un sweep -> rejet -> confirmation peut
+                                         #  prendre 1-3 h ; 3 bougies = invisible)
         wick_ratio: float = 2.0,         # pin bar : mèche / corps
         displacement_atr: float = 0.8,   # corps minimal d'un déplacement
         compression_ratio: float = 0.6,  # ATR5 / ATR50 <= x -> compression

@@ -193,7 +193,10 @@ class SignalEngine:
         return self.run_eurusd(frames, now)
 
     def run_eurusd(self, frames: dict, now: pd.Timestamp) -> CycleReport:
-        """Pipeline spec finale : 5 portes -> confiance -> news 2 h -> plan 1:3."""
+        """BASCULE PHASE 13 : le moteur ADAPTATIF (phases 2-12) est en direct.
+        L'ancien pipeline demeure ci-dessous (_legacy_run_pair) pour archive."""
+        from ..analysis.adaptive_engine import AdaptiveSignalEngine, EngineConfig
+        from ..analysis.anti_overtrading_engine import SignalRecord
         from ..fundamental.dxy import get_dxy
         from ..signals.models import FundamentalView, RiskPlan, pip_spec
 
@@ -202,85 +205,122 @@ class SignalEngine:
             aligned=False, alignment_detail={}, score=0, breakdown={},
             passed_threshold=False, risk_valid=False, blockers=[],
         )
-        try:
-            dxy = get_dxy()
-        except Exception:  # noqa: BLE001
-            dxy = None
 
-        # fondamental EUR/USD (Agent 1) + prochaine news HIGH EUR/USD
-        bias = None
-        try:
-            bias = self.fundamental.analyzer.get_pair_bias("EURUSD", now=now)
-            fund_view = FundamentalView(
-                bias.label, bias.score, False,
-                [f"{s.currency} {d}" for s in (bias.base, bias.quote) if s
-                 for d in s.drivers[:2]],
-                False,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("fondamental indisponible : %s", exc)
-            fund_view = FundamentalView("NEUTRAL", 0.0, False, [], False)
+        # normalisation des clés : Timeframe -> chaîne ("D1", "H4", ...)
+        frames = {getattr(tf, "name", tf): df for tf, df in frames.items()}
+
+        # gate news injectée (mêmes données, jamais de bonus caché)
         news_hours = None
         try:
             upcoming = self.fundamental.analyzer.next_high_impact_events(now=now)
-            eur_usd = upcoming[upcoming["devise"].isin(["EUR", "USD"])] if not upcoming.empty else upcoming
-            if not eur_usd.empty:
-                news_hours = float(eur_usd.iloc[0]["dans_min"]) / 60.0
+            if upcoming is not None and not upcoming.empty:
+                eur_usd = upcoming[upcoming["devise"].isin(["EUR", "USD"])]
+                if not eur_usd.empty:
+                    news_hours = float(eur_usd.iloc[0]["dans_min"]) / 60.0
         except Exception:  # noqa: BLE001
-            pass
+            news_hours = None
 
-        view = self.eurusd.assess(frames, dxy, fund_view, news_hours, now)
-        report.candidate_direction = view.direction
-        report.alignment_detail = view.gates
-        report.blockers = list(view.blockers)
-        if view.direction is None:
-            return report
-        report.aligned = True
+        # historique live -> records anti-overtrading (continuité cooldowns/quotas)
+        history = []
+        try:
+            recent = self.db.recent(limit=40)
+            for _, row in recent.iterrows():
+                exit_kind = None
+                exit_time = None
+                if row["resultat"] in ("TP_ATTEINT", "SL_ATTEINT", "EXPIRE"):
+                    exit_kind = {"TP_ATTEINT": "TP", "SL_ATTEINT": "SL",
+                                 "EXPIRE": "EXPIRE"}[row["resultat"]]
+                    exit_time = pd.Timestamp(row["exit_time"]) if row["exit_time"] else None
+                history.append(SignalRecord(
+                    zone_id=f"LIVE-{row['id']}", direction=str(row["type"]),
+                    time=pd.Timestamp(row["date"]),
+                    exit_time=exit_time, exit_kind=exit_kind))
+        except Exception:  # noqa: BLE001
+            history = []
 
-        wanted = "BULLISH" if view.direction == "LONG" else "BEARISH"
-        supports = bias is not None and bias.label == wanted and abs(bias.score) >= 1.2
-
-        report.score = view.score
-        report.breakdown = view.breakdown
-        report.passed_threshold = view.score >= self.threshold
-        if not report.passed_threshold:
-            report.blockers.append(f"confiance {view.score}% < seuil {self.threshold:.0f}%")
-            return report
-        if news_hours is not None and news_hours < 2:
-            report.blockers.append(f"news HIGH EUR/USD dans {news_hours:.1f} h (< 2 h) : signal bloque")
-            return report
-
-        pip_size, _ = pip_spec("EURUSD")
-        risk_abs = abs(view.entry - view.sl)
-        tp_abs = abs(view.tp - view.entry)
-        plan = RiskPlan(
-            valid=True, entry=round(view.entry, 6), sl=round(view.sl, 6),
-            tp=round(view.tp, 6), rr=view.rr,
-            risk_pips=round(risk_abs / pip_size, 1),
-            tp_pips=round(tp_abs / pip_size, 1),
-            lots=0.01,   # SPEC PETIT COMPTE : lot FIXE, aucun calcul de position
-            reasons=["entree : retest de zone/cassure M15",
-                     "stop : structure, minimum 12 pips", "objectif : 1:3 (min 36 pips)"],
+        engine = AdaptiveSignalEngine(EngineConfig())
+        decision = engine.analyze(
+            frames, now, history=history,
+            news_hours_fn=(lambda: news_hours) if news_hours is not None else None,
         )
+
+        # mapping décision -> rapport
+        report.candidate_direction = decision.direction
+        report.blockers = ([f"[{decision.stage}/{decision.code}] {decision.detail}"]
+                           if decision.decision == "NO_TRADE" else [])
+        report.alignment_detail = {
+            "D1": decision.market_structure[:80],
+            "H4": f"régime {decision.regime}",
+            "M15": decision.liquidity_narrative[:80],
+        }
+        if decision.decision == "NO_TRADE":
+            return report
+
+        report.aligned = True
+        report.score = decision.score or 0
+        report.breakdown = {"qualite_adaptive": decision.score or 0}
+        report.passed_threshold = True
         report.risk_valid = True
 
-        spam = self._spam_blockers("EURUSD", now)
-        if spam:
-            report.blockers.extend(spam)
-            return report
+        pip_size, _ = pip_spec("EURUSD")
+        risk_abs = abs(decision.entry - decision.sl)
+        tp_abs = abs(decision.tp1 - decision.entry)
+        plan = RiskPlan(
+            valid=True, entry=round(decision.entry, 6),
+            sl=round(decision.sl, 6), tp=round(decision.tp1, 6),
+            rr=decision.rr1 or 1.5,
+            risk_pips=round(risk_abs / pip_size, 1),
+            tp_pips=round(tp_abs / pip_size, 1),
+            lots=0.01,   # spec petit compte : stake fixe
+            reasons=[f"setup : {decision.scenario_name}",
+                     f"SL : {decision.invalidation}",
+                     f"objectifs : TP1 {decision.tp1}"
+                     + (f" / TP2 {decision.tp2}" if decision.tp2 else "")
+                     + (f" / TP3 {decision.tp3}" if decision.tp3 else "")],
+        )
 
-        fund_view = FundamentalView(fund_view.bias, fund_view.score, supports,
-                                    fund_view.drivers, fund_view.high_impact_soon)
+        # fondamental pour le message
+        bias = None
+        try:
+            bias = self.fundamental.analyzer.get_pair_bias("EURUSD", now=now)
+        except Exception:  # noqa: BLE001
+            pass
+        supports = bias is not None and (
+            (decision.direction == "LONG" and bias.label == "BULLISH")
+            or (decision.direction == "SHORT" and bias.label == "BEARISH")
+        ) and abs(bias.score) >= 1.2
+
         signal = Signal(
-            pair="EURUSD", direction=view.direction, score=view.score,
-            grade=grade_of(view.score, self.grades) or "B",
+            pair="EURUSD", direction=decision.direction,
+            score=decision.score or 0,
+            grade=decision.grade or "B",
             session=session_label(now), risk=plan,
-            confluences=view.confluences, breakdown=view.breakdown,
-            timeframes=view.gates,
-            fundamental={"bias": fund_view.bias, "score": fund_view.score,
-                         "drivers": fund_view.drivers[:3]},
-            risk_label=view.risk_label, dxy_txt=view.dxy_txt,
-            news_txt=view.news_txt, macro_bias=view.macro_bias,
+            confluences=[decision.why_now, decision.confirmation,
+                         f"structure : {decision.market_structure}"],
+            breakdown=report.breakdown,
+            timeframes={
+                "D1": decision.market_structure[:90],
+                "H4": f"{decision.regime} — {decision.setup[:70]}",
+                "M15": decision.liquidity_narrative[:90],
+                "M5/M30": decision.confirmation,
+                "SETUP": decision.setup,
+                "WHY_NOW": decision.why_now,
+                "INVALIDATION": decision.invalidation,
+                "TP2": str(decision.tp2) if decision.tp2 else "",
+                "TP3": str(decision.tp3) if decision.tp3 else "",
+            },
+            fundamental={
+                "bias": bias.label if bias else "NEUTRAL",
+                "score": bias.score if bias else 0.0,
+                "supports": supports,
+                "drivers": ([f"{s.currency} {d}" for s in (bias.base, bias.quote)
+                             if s for d in s.drivers[:2]] if bias else []),
+            },
+            risk_label="MOYEN",
+            dxy_txt="",
+            news_txt=(f"news HIGH dans ~{news_hours:.1f} h" if news_hours
+                      else "aucune news HIGH < 24 h"),
+            macro_bias=f"{bias.label} ({bias.score:+.1f})" if bias else "NEUTRAL",
             created_at=now.strftime("%Y-%m-%d %H:%M:%S") + " UTC",
         )
         report.signal = signal

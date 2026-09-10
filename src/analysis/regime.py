@@ -15,9 +15,10 @@ Principes d'implémentation :
     - FONCTION PURE des bougies H4 CLÔTURÉES (aucune fuite du futur :
       seuls les swings confirmés et les événements structurels déjà
       observables à l'instant évalué sont utilisés) ;
-    - hiérarchie de décision fixe (CHAOTIC > BREAKOUT > TRANSITION-récent >
-      TREND > RANGE > TRANSITION par défaut) — une règle en amont ne peut
-      pas être annulée par une règle en aval ;
+    - hiérarchie de décision fixe (CHAOTIC > BREAKOUT > RANGE VALIDE >
+      TRANSITION-récent > TREND > TRANSITION par défaut). Un range valide
+      PRIME sur un CHoCH récent : dans un range, les CHoCH alternent en
+      permanence — c'est la rotation du range, pas une transition ;
     - chaque paramètre expose des candidats calibrés (spec §30) — voir
       scripts/test_regime.py (grille) et docs/PHASE2_REPORT.md.
 """
@@ -129,12 +130,21 @@ class MarketRegimeEngine:
                 f"{alternations} alternances de cassure sur {self.whipsaw_window} bougies",
             )
 
-        # --- Range préexistant (clustering SANS la zone récente) -----------
+        # --- Range préexistant (SANS la zone récente) -----------------------
+        # Bornes = extrêmes des SWINGS (robustes aux mèches isolées) ;
+        # TOUCHES = interactions du PRIX avec chaque zone de borne (un pro
+        # compte les visites de zone, pas les fractales exactes).
         old = [s for s in swings if s.index <= n - 1 - self.recent_zone]
         highs = [s.price for s in old if s.kind == "high"]
         lows = [s.price for s in old if s.kind == "low"]
-        range_info = self._range_stats(highs, lows, atr_ctx)
-        rh, rl, touches_h, touches_l = range_info
+        rh = max(highs) if highs else None
+        rl = min(lows) if lows else None
+        touches_h = touches_l = 0
+        if rh is not None and rl is not None:
+            tol = self.range_touch_tol_atr * atr_ctx
+            old_df = win.iloc[: max(1, n - self.recent_zone)]
+            touches_h = int((old_df["high"] >= rh - tol).sum())
+            touches_l = int((old_df["low"] <= rl + tol).sum())
         prior_range_valid = (
             rh is not None
             and touches_h >= 2 and touches_l >= 2
@@ -174,31 +184,8 @@ class MarketRegimeEngine:
                     rh, rl, (rh + rl) / 2, self._pos(price, rh, rl),
                 )
 
-        # --- 3) TRANSITION : CHoCH récent ----------------------------------
-        recent_choch = [e for e in events
-                        if e["type"] == "CHoCH"
-                        and e["break_index"] >= n - 1 - self.choch_recency]
-        if recent_choch:
-            e = recent_choch[-1]
-            return RegimeInfo(
-                REGIME_TRANSITION, 0.65,
-                f"CHoCH {e['direction']} il y a {n - 1 - e['break_index']} bougies — "
-                "retournement en formation, prudence",
-            )
-
-        # --- 4) TREND_UP / TREND_DOWN : majorité structurelle ---------------
-        up_frac, down_frac, comparisons = self._trend_fractions(swings)
-        if comparisons >= self.min_trend_comparisons:
-            if up_frac >= self.trend_majority:
-                return RegimeInfo(REGIME_TREND_UP, up_frac,
-                                  f"{comparisons} comparaisons de swings, "
-                                  f"{up_frac * 100:.0f}% de HH/HL")
-            if down_frac >= self.trend_majority:
-                return RegimeInfo(REGIME_TREND_DOWN, down_frac,
-                                  f"{comparisons} comparaisons de swings, "
-                                  f"{down_frac * 100:.0f}% de LH/LL")
-
-        # --- 5) RANGE --------------------------------------------------------
+        # --- 3) RANGE VALIDE (prime sur un CHoCH récent : la rotation d'un
+        #        range produit des CHoCH permanents, ce n'est pas une transition)
         if prior_range_valid and rl <= price <= rh:
             pos = self._pos(price, rh, rl)
             pd_label = ("discount" if pos < 45 else
@@ -210,6 +197,55 @@ class MarketRegimeEngine:
                 f"{touches_l} du bas ; prix à {pos:.0f}% du range ({pd_label})",
                 rh, rl, (rh + rl) / 2, pos, pd_label,
             )
+
+        # --- 4) TRANSITION : CHoCH récent ----------------------------------
+        recent_choch = [e for e in events
+                        if e["type"] == "CHoCH"
+                        and e["break_index"] >= n - 1 - self.choch_recency]
+        if recent_choch:
+            e = recent_choch[-1]
+            return RegimeInfo(
+                REGIME_TRANSITION, 0.65,
+                f"CHoCH {e['direction']} il y a {n - 1 - e['break_index']} bougies — "
+                "retournement en formation, prudence",
+            )
+
+        # --- 5) TREND_UP / TREND_DOWN : majorité structurelle ---------------
+        up_frac, down_frac, comparisons = self._trend_fractions(swings)
+        if comparisons >= self.min_trend_comparisons:
+            if up_frac >= self.trend_majority:
+                return RegimeInfo(REGIME_TREND_UP, up_frac,
+                                  f"{comparisons} comparaisons de swings, "
+                                  f"{up_frac * 100:.0f}% de HH/HL")
+            if down_frac >= self.trend_majority:
+                return RegimeInfo(REGIME_TREND_DOWN, down_frac,
+                                  f"{comparisons} comparaisons de swings, "
+                                  f"{down_frac * 100:.0f}% de LH/LL")
+
+        # --- 5bis) Tendance par PREUVE EMA (grind sans majorité de swings) ---
+        # Un marché qui grind (creux qui montent, swings bruités) ne vote
+        # jamais en majorité HH/HL mais s'écrit clairement sur les EMA :
+        # prix > EMA50 > EMA100 avec EMA50 qui monte = tendance haussière.
+        # Un range VALIDE est déjà retourné plus haut (ordre de décision) :
+        # cette preuve ne peut donc pas déguiser un range en tendance.
+        if n >= 110:
+            e50 = win["close"].ewm(span=50, adjust=False, min_periods=50).mean()
+            e100 = win["close"].ewm(span=100, adjust=False, min_periods=100).mean()
+            price_now = float(win["close"].iloc[-1])
+            e50_now, e100_now = float(e50.iloc[-1]), float(e100.iloc[-1])
+            e50_slope = float(e50.iloc[-1] - e50.iloc[-11])   # 10 bougies
+            if (price_now > e50_now > e100_now and e50_slope > 0
+                    and prior_range_valid is False):
+                return RegimeInfo(
+                    REGIME_TREND_UP, 0.55,
+                    f"grind haussier : prix > EMA50 > EMA100, EMA50 ascendante "
+                    f"(preuve EMA — swings sans majorité {up_frac * 100:.0f}%)")
+            if (price_now < e50_now < e100_now and e50_slope < 0
+                    and prior_range_valid is False):
+                return RegimeInfo(
+                    REGIME_TREND_DOWN, 0.55,
+                    f"grind baissier : prix < EMA50 < EMA100, EMA50 descendante "
+                    f"(preuve EMA — swings sans majorité {down_frac * 100:.0f}%)")
 
         # --- 6) Défaut : structure indéterminée ------------------------------
         width = (rh - rl) if rh is not None else None
@@ -238,16 +274,6 @@ class MarketRegimeEngine:
                     continue
             out.append(s)
         return out
-
-    def _range_stats(self, highs: list[float], lows: list[float], atr: float):
-        """Borne haute/basse du regroupement + nombre de touches."""
-        if not highs or not lows:
-            return None, None, 0, 0
-        rh, rl = max(highs), min(lows)
-        tol = self.range_touch_tol_atr * atr  # regroupement des extrêmes
-        th = sum(1 for h in highs if rh - h <= max(tol, 1e-9))
-        tl = sum(1 for l in lows if l - rl <= max(tol, 1e-9))
-        return rh, rl, th, tl
 
     def _boundaries_flat(self, highs: list[float], lows: list[float], atr: float) -> bool:
         """Un VRAI range a des bornes horizontales : la dérive des sommets et

@@ -60,6 +60,7 @@ class StructureSummary:
     last_mss: dict | None = None      # dernier MSS (CHoCH + displacement)
     n_swings: int = 0
     detail: str = ""
+    event_times: list = field(default_factory=list)   # temps des cassures""
 
 
 @dataclass(frozen=True)
@@ -163,6 +164,7 @@ class MarketStructureEngine:
             labels=labels_seq, counts=counts,
             last_event=dict(events[-1]) if events else None,
             last_mss=last_mss, n_swings=len(labelled), detail=detail,
+            event_times=[e["break_time"] for e in events[-30:]],
         )
 
     # ------------------------------------------------------------------ #

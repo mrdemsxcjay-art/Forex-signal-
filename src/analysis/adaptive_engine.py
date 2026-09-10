@@ -43,7 +43,7 @@ from .anti_overtrading_engine import (
     SignalRecord,
 )
 from .candles import compute_atr
-from .liquidity_engine import MarketLiquidityEngine
+from .liquidity_engine import MarketLiquidityEngine, merge_liquidity
 from .price_action_engine import PriceActionEngine
 from .regime import MarketRegimeEngine, RegimeInfo
 from .risk_target_engine import RiskTargetEngine, TradePlan
@@ -78,7 +78,8 @@ class EngineConfig:
     # P4 liquidité
     liquidity: dict = field(default_factory=lambda: dict(swing_k=4))
     # P5 price action
-    price_action: dict = field(default_factory=lambda: dict(swing_k=4))
+    price_action: dict = field(default_factory=lambda: dict(
+        swing_k=4, lookback=8))
     # P6 SMC
     smc: dict = field(default_factory=lambda: dict(swing_k=4))
     # P7 scénarios / localisation
@@ -87,12 +88,13 @@ class EngineConfig:
         require_confirmation=True))
     # P8 plan
     risk: dict = field(default_factory=lambda: dict(
-        sl_buffer_atr=0.15, min_sl_atr=0.3, max_sl_atr=4.0, min_rr1=1.5))
+        sl_buffer_atr=0.15, min_sl_atr=0.3, max_sl_atr=4.0, min_rr1=1.5,
+        min_rr1_range=1.2))
     # P9 anti-overtrading
     anti_overtrading: dict = field(default_factory=lambda: dict(
-        cooldown_after_sl_min=240, cooldown_after_tp_min=120,
-        cooldown_neutral_min=180, max_per_day=3, max_same_zone_per_day=2,
-        max_post_sl_per_day=2, max_consecutive_same_direction=3))
+        cooldown_after_sl_min=150, cooldown_after_tp_min=90,
+        cooldown_neutral_min=60, max_per_day=4, max_same_zone_per_day=2,
+        max_post_sl_per_day=3, max_consecutive_same_direction=20))
     # gates transverses
     news_block_hours: float = 2.0     # 0 = gate désactivée
     min_score: int = 65               # seuil de QUALITÉ (classement, pas validité)
@@ -200,7 +202,14 @@ class AdaptiveSignalEngine:
                 summaries[tf] = self.structure_engine.summarize(frames[tf], tf)
         verdict = MarketStructureEngine.combine(summaries)
 
-        liq = self.liquidity_engine.analyze(h4, d1)
+        # Liquidité MULTI-ÉCHELLE (§11) : H4 = objectifs/contexte,
+        # M15 = sweeps de timing d'entrée. Un pro vise la liquidité H4
+        # mais chronomètre sur la prise de liquidité M15.
+        liq_h4 = self.liquidity_engine.analyze(h4, d1)
+        liq_m15 = self.liquidity_engine.analyze(m15, d1)
+        liq = merge_liquidity(liq_h4, liq_m15)
+        liq.narrative = (liq_h4.narrative + " | timing M15 : "
+                         + liq_m15.narrative)
         untouched = [l.price for l in liq.levels if l.status == "untouched"][:6]
         pa = self.pa_engine.analyze(m15, levels=untouched)
         zones = self.smc_engine.zones(h4, "H4")
@@ -231,8 +240,23 @@ class AdaptiveSignalEngine:
                           f"(< {self.config.news_block_hours:.0f} h) : signal bloqué")
 
         # ---------- GATE 10 : ANTI-OVERTRADING (P9) ---------------------------- #
+        # ContextEvents construits depuis les analyses COURANTES (fix critique :
+        # sans eux, la ré-entrée §25 restait bloquée pour toujours — le replay
+        # et le shadow vivaient ce bug). Union avec un contexte externe éventuel.
+        built_ctx = ContextEvents(
+            sweep_times=[s.time for s in liq.recent_sweeps],
+            break_times=(summaries.get("M15").event_times
+                         if summaries.get("M15") else [])
+            + (summaries.get("H4").event_times if summaries.get("H4") else []),
+            zone_created_times=[z.created_time for z in zones
+                                if z.created_time is not None],
+        )
+        if context_events is not None:
+            built_ctx.sweep_times += context_events.sweep_times
+            built_ctx.break_times += context_events.break_times
+            built_ctx.zone_created_times += context_events.zone_created_times
         candidate = Candidate(zone.id, pre.direction, scenario.name)
-        ot = self.anti_ot.check(candidate, history or [], now, context_events)
+        ot = self.anti_ot.check(candidate, history or [], now, built_ctx)
         if not ot.allowed:
             return no(STAGE_ANTI_OVERTRADING, ot.code, ot.detail)
 

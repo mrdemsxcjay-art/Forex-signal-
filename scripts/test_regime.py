@@ -123,6 +123,33 @@ def main() -> int:
     r = engine.detect(to_df(closes))
     check("alternances violentes -> CHAOTIC", r.regime == REGIME_CHAOTIC, r.detail)
 
+    # 8bis. Grind haussier ERRANT (swings muets, EMA nettes) — bruit LCG
+    #        déterministe lissé : les maxima locaux varient, la majorité de
+    #        swings ne peut pas voter, seule la preuve EMA tranche.
+    def wandering(seed, n, amp, smooth):
+        state = seed
+        draws = []
+        for _ in range(n):
+            state = (1664525 * state + 1013904223) % (2**31)
+            draws.append(state / 2**31 - 0.5)
+        out, acc = [], []
+        for d in draws:
+            acc.append(d)
+            if len(acc) > smooth:
+                acc.pop(0)
+            out.append(sum(acc) / len(acc) * amp)
+        return out
+
+    noise = wandering(42, 170, 0.006, 14)
+    closes = [1.1000 + 0.00016 * i + noise[i] for i in range(170)]
+    r = engine.detect(to_df(closes))
+    check("grind haussier errant -> TREND_UP (preuve EMA)",
+          r.regime == REGIME_TREND_UP and "EMA" in r.detail, r.detail[:70])
+    closes_dn = [1.3200 - 0.00016 * i + noise[i] for i in range(170)]
+    r = engine.detect(to_df(closes_dn))
+    check("grind baissier errant -> TREND_DOWN (preuve EMA)",
+          r.regime == REGIME_TREND_DOWN, r.detail[:70])
+
     # 9. Stabilité : un trend ne doit pas clignoter
     df = to_df(trend_up(n=300))
     regimes = [engine.detect(df.iloc[:i + 1]).regime

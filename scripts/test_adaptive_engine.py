@@ -122,19 +122,21 @@ def main() -> int:
           dec.decision == "NO_TRADE" and dec.code == "DATA_INSUFFICIENT")
 
     # 7. Anti-dérive config #1 : largeur de range max démesurée -> le range
-    #    n'est plus détectable -> TRANSITION par défaut -> bloqué
+    #    n'est plus détectable -> le verdict CHANGE (preuve EMA ou transition)
     cfg = EngineConfig()
     cfg.regime = dict(cfg.regime, range_min_width_atr=50.0)
-    dec = AdaptiveSignalEngine(cfg).analyze(frames, now)
-    check("config consommée : range_min_width 50 ATR -> REGIME_UNCERTAIN",
-          dec.decision == "NO_TRADE" and dec.code == "REGIME_UNCERTAIN",
-          dec.detail[:60])
+    dec_drift = AdaptiveSignalEngine(cfg).analyze(frames, now)
+    dec_base = AdaptiveSignalEngine(EngineConfig()).analyze(frames, now)
+    check("config consommée : range_min_width 50 ATR -> verdict différent",
+          dec_drift.decision != dec_base.decision
+          or dec_drift.code != dec_base.code,
+          f"{dec_drift.decision}/{dec_drift.code} vs {dec_base.decision}/{dec_base.code}")
 
-    # 8. Anti-dérive config #2 : min_rr1=5.0 -> plan impossible -> BAD_RR
+    # 8. Anti-dérive config #2 : min RR 5.0 (les DEUX régimes) -> BAD_RR
     cfg = EngineConfig()
-    cfg.risk = dict(cfg.risk, min_rr1=5.0)
+    cfg.risk = dict(cfg.risk, min_rr1=5.0, min_rr1_range=5.0)
     dec = AdaptiveSignalEngine(cfg).analyze(frames, now)
-    check("config consommée : min_rr1 5.0 -> NO_TRADE BAD_RR",
+    check("config consommée : min RR 5.0 partout -> NO_TRADE BAD_RR",
           dec.decision == "NO_TRADE" and dec.code == "BAD_RR", dec.detail[:70])
 
     # 9. Gate NEWS injectée (réparation F-02) : news à 1 h -> blocage

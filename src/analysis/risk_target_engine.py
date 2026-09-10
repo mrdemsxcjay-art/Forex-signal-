@@ -88,7 +88,10 @@ class RiskTargetEngine:
         sl_buffer_atr: float = 0.15,
         min_sl_atr: float = 0.3,
         max_sl_atr: float = 4.0,
-        min_rr1: float = 1.5,           # RR minimal vers TP1 (§21, à calibrer P12)
+        min_rr1: float = 1.5,           # RR minimal vers TP1 (tendances)
+        min_rr1_range: float = 1.2,     # RR minimal en RANGE (aller-retour
+                                        #  extrême -> milieu plus court : TP
+                                        #  différenciés selon l'opportunité §21)
         tp_min_gap_atr: float = 0.2,    # écart minimal entre TP successifs
         atr: float | None = None,       # ATR injectable (tests déterministes)
     ) -> None:
@@ -96,6 +99,7 @@ class RiskTargetEngine:
         self.min_sl_atr = float(min_sl_atr)
         self.max_sl_atr = float(max_sl_atr)
         self.min_rr1 = float(min_rr1)
+        self.min_rr1_range = float(min_rr1_range)
         self.tp_min_gap_atr = float(tp_min_gap_atr)
         self._atr = atr
 
@@ -226,8 +230,26 @@ class RiskTargetEngine:
             plan.invalid_reason = "aucune structure opposée atteignable identifiée"
             return plan
 
-        # --- TP1 : première structure opposée, mineure ou majeure (§21) ---------
-        tp1, r1 = all_c[0]
+        # --- TP1 : première structure opposée qui PAIE le risque (§21) --------
+        # Un pro ne vise pas l'obstacle trivial le plus proche : TP1 = le
+        # premier niveau dont le RR disponible >= minimum du régime. Les
+        # candidats trop proches sont sautés (aucun TP inventé pour autant).
+        min_rr = self.min_rr1_range if regime.regime == REGIME_RANGE else self.min_rr1
+
+        def rr_to(p: float) -> float:
+            return (p - entry) / risk if long_side else (entry - p) / risk
+
+        eligible = [c for c in all_c if rr_to(c[0]) >= min_rr]
+        if not eligible:
+            plan.valid = False
+            plan.invalid_code = INVALID_RR
+            best = max((rr_to(c[0]) for c in all_c), default=0.0)
+            plan.invalid_reason = (
+                f"meilleure structure opposée à {best:.1f}R < {min_rr:.1f}R "
+                "minimum — le marché n'offre pas assez d'espace, on n'invente "
+                "pas un TP plus loin")
+            return plan
+        tp1, r1 = eligible[0]
         plan.tp1, plan.tp_reasons = round(tp1, 6), [r1]
 
         # --- TP2 : objectif structurel PRINCIPAL (majeurs seulement) ------------
@@ -264,11 +286,10 @@ class RiskTargetEngine:
 
         plan.rr1, plan.rr2, plan.rr3 = rr(plan.tp1), rr(plan.tp2), rr(plan.tp3)
 
-        if plan.rr1 is None or plan.rr1 < self.min_rr1:
+        if plan.rr1 is None or plan.rr1 < min_rr - 1e-9:
             plan.valid = False
             plan.invalid_code = INVALID_RR
             plan.invalid_reason = (f"RR disponible vers la première structure : "
                                    f"{plan.rr1 if plan.rr1 is not None else 0:.1f}R "
-                                   f"< {self.min_rr1:.1f}R minimum — le marché n'offre "
-                                   "pas assez d'espace, on n'invente pas un TP plus loin")
+                                   f"< {min_rr:.1f}R minimum")
         return plan
