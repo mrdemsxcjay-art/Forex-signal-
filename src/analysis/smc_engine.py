@@ -189,11 +189,13 @@ class SMCIntegrationEngine:
         else:
             if zone.status not in ACTIONABLE_STATUSES:
                 blockers.append(f"zone non actionnable ({zone.status})")
-        # position : la zone doit être SOUS le prix pour un LONG, au-dessus pour un SHORT
-        if want_long and zone.zone_top > price + 1e-9:
-            blockers.append("zone au-dessus du prix : rien à acheter en retrait")
-        if not want_long and zone.zone_bottom < price - 1e-9:
-            blockers.append("zone sous le prix : rien à vendre en retrait")
+        # position : la zone doit chevaucher ou précéder le prix — un prix
+        # À L'INTÉRIEUR de la zone est une localisation valide (achat dans la
+        # zone). Seule une zone ENTIÈREMENT au-delà du prix est inutilisable.
+        if want_long and zone.zone_bottom > price + 1e-9:
+            blockers.append("zone entièrement au-dessus du prix : rien à acheter en retrait")
+        if not want_long and zone.zone_top < price - 1e-9:
+            blockers.append("zone entièrement sous le prix : rien à vendre en retrait")
 
         # --- Gate 2 : régime + localisation (hiérarchie §4-§5) ---------------
         if regime.is_no_trade_regime:
