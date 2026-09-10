@@ -32,6 +32,8 @@ from .config import load_config
 from .data.data_fetcher import DataFetcher
 from .logger import setup_logging
 from .notifications.telegram import TelegramSender, format_heartbeat
+from .shadow.shadow_recorder import ShadowDatabase
+from .shadow.shadow_tracker import ShadowTracker
 from .signals.engine import SignalEngine
 from .signals.tracker import SignalTracker
 from .storage.database import SignalDatabase
@@ -68,6 +70,9 @@ class LoopRunner:
             self.db, self.fetcher, telegram=self.telegram,
             expiry_bars=getattr(self.cfg.signals, "expiry_bars", None) or 96,
         )
+        # PHASE 11 — paper shadow mode : nouveau moteur en parallèle (papier).
+        self.shadow_db = ShadowDatabase("data/shadow.db")
+        self.shadow_tracker = ShadowTracker(self.shadow_db, self.fetcher)
         self.pairs = list(self.cfg.trading.pairs)
         self.interval = int(self.cfg.trading.poll_interval_seconds)
         self.stop = threading.Event()
@@ -130,6 +135,12 @@ class LoopRunner:
             self.n_errors += 1
             logger.error("[tracker] échec (isolé) : %s", exc)
 
+        # --- paper shadow mode (§27) : isolé, ne casse jamais le live -------
+        try:
+            summary["shadow"] = self.run_shadow_cycle()
+        except Exception as exc:  # noqa: BLE001
+            logger.error("[shadow] échec (isolé) : %s", exc)
+
         # Persistance du rapport de cycle (transparence dashboard, sans risque :
         # une écriture ratée ne perturbe jamais la boucle)
         try:
@@ -150,6 +161,60 @@ class LoopRunner:
         return summary
 
     # ------------------------------------------------------------------ #
+    # ------------------------------------------------------------------ #
+    def run_shadow_cycle(self) -> dict:
+        """Le moteur adaptatif (phases 2-10) sur les mêmes données — papier.
+
+        Journalise TOUTES les décisions (SIGNAL simulé + NO_TRADE codés §33),
+        clôture les signaux papier ouverts avec MAE/MFE (§28). Aucune action.
+        """
+        import pandas as pd
+
+        from .analysis.adaptive_engine import AdaptiveSignalEngine, EngineConfig
+
+        now = pd.Timestamp.now(tz="UTC")
+        lookbacks = {"D1": 400, "H4": 90, "H1": 60, "M30": 30, "M15": 30, "M5": 30}
+        frames = {}
+        for tf, days in lookbacks.items():
+            try:
+                frames[tf] = self.fetcher.get_candles("EURUSD", tf,
+                                                      lookback_days=days)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("[shadow] %s indisponible : %s", tf, exc)
+
+        # gate news injectée (mêmes données que le live, jamais de bonus caché)
+        news_hours = None
+        try:
+            upcoming = self.engine.fundamental.analyzer.next_high_impact_events(
+                now=now)
+            if upcoming is not None and not upcoming.empty:
+                eur_usd = upcoming[upcoming["devise"].isin(["EUR", "USD"])]
+                if not eur_usd.empty:
+                    news_hours = float(eur_usd.iloc[0]["dans_min"]) / 60.0
+        except Exception:  # noqa: BLE001
+            news_hours = None
+
+        engine = AdaptiveSignalEngine(EngineConfig())
+        decision = engine.analyze(
+            frames, now,
+            history=self.shadow_db.history_records(),
+            news_hours_fn=(lambda: news_hours) if news_hours is not None else None,
+        )
+        self.shadow_db.record_decision(decision, now)
+        closures = self.shadow_tracker.update_all(now)
+
+        if decision.decision == "SIGNAL":
+            logger.info("[shadow] SIGNAL PAPIER %s %s/100 (%s) — entrée %s, "
+                        "SL %s, TP1 %s (rr %.2f)",
+                        decision.direction, decision.score, decision.grade,
+                        decision.entry, decision.sl, decision.tp1,
+                        decision.rr1 or 0)
+        else:
+            logger.info("[shadow] NO_TRADE [%s/%s] — %s",
+                        decision.stage, decision.code, decision.detail[:80])
+        return {"decision": decision.decision, "code": decision.code,
+                "closures": len(closures)}
+
     def _notify(self, text: str) -> None:
         try:
             self.telegram.send_text(text)

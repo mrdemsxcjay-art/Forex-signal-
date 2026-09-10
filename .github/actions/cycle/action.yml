@@ -33,6 +33,7 @@ runs:
         path: |
           data/signals.db
           data/last_cycle.json
+          data/shadow.db
         key: signalsdb-v2-${{ github.run_id }}
         restore-keys: |
           signalsdb-v2-
@@ -54,4 +55,5 @@ runs:
         path: |
           data/signals.db
           data/last_cycle.json
+          data/shadow.db
         key: signalsdb-v2-${{ github.run_id }}
