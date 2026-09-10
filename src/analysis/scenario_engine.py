@@ -168,6 +168,7 @@ class ScenarioEngine:
         extended_move_ratio: float = 1.5,  # réalisé/attendu >= x -> EXTENDED
         expected_window: int = 20,         # jours pour l'amplitude attendue
         h4_atr: float | None = None,       # ATR H4 injectable (tests)
+        require_confirmation: bool = True, # False : confirmation = bonus, plus gate
     ) -> None:
         self.upper_band = float(upper_band)
         self.lower_band = float(lower_band)
@@ -175,6 +176,7 @@ class ScenarioEngine:
         self.level_proximity_atr = float(level_proximity_atr)
         self.extended_move_ratio = float(extended_move_ratio)
         self.expected_window = int(expected_window)
+        self.require_confirmation = bool(require_confirmation)
         self._h4_atr = h4_atr
 
     # ------------------------------------------------------------------ #
@@ -256,7 +258,7 @@ class ScenarioEngine:
             conf = pa.confirmation("bearish")
             if conf:
                 met.append(f"confirmation {conf.name}")
-            else:
+            elif self.require_confirmation:
                 pend.append("confirmation price action baissière")
             return met, pend
 
@@ -269,7 +271,7 @@ class ScenarioEngine:
             conf = pa.confirmation("bullish")
             if conf:
                 met.append(f"confirmation {conf.name}")
-            else:
+            elif self.require_confirmation:
                 pend.append("confirmation price action haussière")
             return met, pend
 
@@ -337,7 +339,7 @@ class ScenarioEngine:
             conf = pa.confirmation("bullish" if up else "bearish")
             if conf:
                 met.append(f"confirmation {conf.name}")
-            else:
+            elif self.require_confirmation:
                 pend.append(f"confirmation price action {'haussière' if up else 'baissière'}")
             ss.scenarios.append(Scenario(
                 "K", f"Breakout {'haussier' if up else 'baissier'} accepté : attendre "

@@ -83,7 +83,8 @@ class EngineConfig:
     smc: dict = field(default_factory=lambda: dict(swing_k=4))
     # P7 scénarios / localisation
     scenario: dict = field(default_factory=lambda: dict(
-        zone_reach_atr=1.5, extended_move_ratio=1.5))
+        zone_reach_atr=1.5, extended_move_ratio=1.5,
+        require_confirmation=True))
     # P8 plan
     risk: dict = field(default_factory=lambda: dict(
         sl_buffer_atr=0.15, min_sl_atr=0.3, max_sl_atr=4.0, min_rr1=1.5))
