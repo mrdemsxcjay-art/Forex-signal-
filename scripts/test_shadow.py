@@ -154,6 +154,30 @@ def main() -> int:
               and stats["profit_factor"] == 6.0,
               f"expectancy {stats['expectancy_r']} PF {stats['profit_factor']}")
 
+        # 7bis. §28 : les excursions APRÈS la sortie ne comptent pas
+        #       (EXPIRE à +0.22R puis marché qui chute 2R -> MAE doit rester
+        #        celui d'avant la sortie, pas -2R)
+        db5 = ShadowDatabase(Path(tmp) / "s5.db")
+        d5 = sig_decision(entry=1.1000, sl=1.0970, tp1=1.2000)  # jamais touché
+        db5.record_decision(d5, NOW)
+        bars5 = m15_bars([
+            (1.1000, 1.1008, 1.0995, 1.1002),   # +0.27R favorable
+        ] + [
+            (1.1000, 1.1005, 1.0998, 1.1000),
+        ] * 96, start="2026-06-11 12:15")        # 24 h -> EXPIRE ~ +0R
+        bars_late = m15_bars([
+            (1.0900, 1.0905, 1.0880, 1.0890),   # chute -4R APRÈS l'expiration
+        ] * 5, start="2026-06-12 13:00")
+        all_bars = pd.concat([bars5, bars_late])
+        ShadowTracker(db5, StubFetcher(all_bars)).update_all(
+            NOW + pd.Timedelta(hours=40))
+        with db5._connect() as c:
+            o = c.execute("SELECT status, mae_r, mfe_r FROM signal_outcomes"
+                          ).fetchone()
+        check("§28 : MAE/MFE stoppés à la sortie (chute postérieure ignorée)",
+              o["status"] == "EXPIRE" and o["mae_r"] > -1.0 and o["mfe_r"] < 1.0,
+              f"mae {o['mae_r']} mfe {o['mfe_r']}")
+
         # 8. history_records : format anti-overtrading (rejeu papier)
         hist = db4.history_records()
         check("history_records -> SignalRecords avec exits",

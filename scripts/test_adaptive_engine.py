@@ -59,7 +59,7 @@ def build_frames():
                        for i in range(250)], "1D", spread=0.0004,
                       start="2025-10-22")
     sine = [1.1000 + 0.0050 * math.sin(2 * math.pi * i / 24) for i in range(210)]
-    h4 = closes_to_df(sine, "4h", spread=0.0006, start="2026-05-27")
+    h4 = closes_to_df(sine, "4h", spread=0.0006, start="2026-05-26")
     h4 = append_explicit(h4, [
         (1.0968, 1.0972, 1.0958, 1.0962),   # descente (bougie baissière = futur OB)
         (1.0962, 1.0966, 1.0930, 1.0956),   # SWEEP des creux, close dedans
@@ -69,7 +69,7 @@ def build_frames():
     ], "4h")
     m15_closes = [1.1005 - 0.000041 * i for i in range(110)]
     m15 = closes_to_df(m15_closes, "15min", spread=0.00025,
-                       start="2026-06-29 12:00")
+                       start="2026-06-29 16:00")
     m15 = append_explicit(m15, [
         (1.09598, 1.09615, 1.09580, 1.09590),
         (1.09590, 1.09725, 1.09578, 1.09705),   # ENGULFING haussière

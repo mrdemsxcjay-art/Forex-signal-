@@ -68,15 +68,16 @@ class ShadowTracker:
             favorable = (bar["high"] - entry) if long_side else (entry - bar["low"])
             mae = min(mae, adverse / risk)
             mfe = max(mfe, favorable / risk)
-            if status is None:
-                hit_sl = bar["low"] <= sl if long_side else bar["high"] >= sl
-                hit_tp = bar["high"] >= tp1 if long_side else bar["low"] <= tp1
-                if hit_sl:                     # SL prioritaire (conservateur)
-                    status, exit_price, exit_time = "SL", sl, ts
-                elif hit_tp:
-                    status, exit_price, exit_time = "TP", tp1, ts
-                elif ts > expiry_ts:
-                    status, exit_price, exit_time = "EXPIRE", float(bar["close"]), ts
+            hit_sl = bar["low"] <= sl if long_side else bar["high"] >= sl
+            hit_tp = bar["high"] >= tp1 if long_side else bar["low"] <= tp1
+            if hit_sl:                         # SL prioritaire (conservateur)
+                status, exit_price, exit_time = "SL", sl, ts
+            elif hit_tp:
+                status, exit_price, exit_time = "TP", tp1, ts
+            elif ts > expiry_ts:
+                status, exit_price, exit_time = "EXPIRE", float(bar["close"]), ts
+            if status is not None:
+                break   # §28 : MAE/MFE mesurés JUSQU'À la sortie, pas après
 
         if status is None:
             # toujours ouvert : MAE/MFE partiels non persistés (on attend la fin)
