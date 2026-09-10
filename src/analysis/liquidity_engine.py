@@ -82,6 +82,8 @@ class BreakoutEvent:
 @dataclass
 class LiquidityInfo:
     levels: list[LiquidityLevel] = field(default_factory=list)
+    #: niveaux clés PDH/PDL/PWH/PWL, jamais écrêtés (pour la Daily Map)
+    key_levels: dict[str, LiquidityLevel] = field(default_factory=dict)
     nearest_above: LiquidityLevel | None = None    # niveau INTACT le plus proche au-dessus
     nearest_below: LiquidityLevel | None = None
     recent_sweeps: list[SweepEvent] = field(default_factory=list)
@@ -160,7 +162,12 @@ class MarketLiquidityEngine:
             sweeps.extend(e for e in events if isinstance(e, SweepEvent))
             breakouts.extend(e for e in events if isinstance(e, BreakoutEvent))
 
-        # --- 6) Sélection : les plus proches du prix (cap max_levels) ---------
+        # --- 6) Niveaux clés (jamais écrêtés) + sélection par proximité ------
+        for kind in ("PDH", "PDL", "PWH", "PWL"):
+            for lv in classified:
+                if lv.kind == kind:
+                    info.key_levels[kind] = lv
+                    break
         classified.sort(key=lambda l: abs(l.price - price))
         classified = classified[: self.max_levels]
 
@@ -201,11 +208,15 @@ class MarketLiquidityEngine:
             out.append(LiquidityLevel(float(prev_day["low"]), "PDL", "external",
                                       STATUS_UNTOUCHED, days.index[-1],
                                       "plus bas de la veille"))
-        # semaine précédente (ISO), close avant la semaine en cours
+        # semaine précédente (ISO) = la DERNIÈRE semaine complète disponible
+        # avant la semaine en cours (pas tout l'historique !)
         last_week = int(df.index[-1].isocalendar()[1])
         d1_weeks = df_d1.index.isocalendar().week.to_numpy()
-        prev_week_days = df_d1[d1_weeks < last_week]
+        before = d1_weeks < last_week
+        prev_week_days = df_d1[before]
         if not prev_week_days.empty:
+            prev_week_num = int(d1_weeks[before].max())
+            prev_week_days = df_d1[d1_weeks == prev_week_num]
             current_week_days = df_d1[d1_weeks == last_week]
             if not current_week_days.empty:  # la semaine en cours a commencé
                 out.append(LiquidityLevel(float(prev_week_days["high"].max()), "PWH",
